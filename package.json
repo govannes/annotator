@@ -1,0 +1,19 @@
+{
+  "name": "annotator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "build:extension": "tsc && vite build --config vite.extension.config.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  },
+  "dependencies": {
+    "node-html-parser": "^7.0.2"
+  }
+}

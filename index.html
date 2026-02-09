@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Annotator (fuzzy anchoring)</title>
+    <style>
+      .annotator-highlight { background: rgba(255, 220, 0, 0.35); border-radius: 2px; }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <aside id="test-panel" style="margin: 1rem; padding: 1rem; background: #f0f0f0; border-radius: 8px; font-family: monospace; font-size: 12px;">
+        <strong>Annotator:</strong> Select text → <b>Add annotation</b> (saves to backend + highlights). Or use <b>Re-attach</b> to test.
+        <div style="margin: 0.5rem 0;">
+          <button type="button" id="add-annotation" style="padding: 0.25rem 0.5rem;">Add annotation</button>
+          <button type="button" id="test-reattach" style="padding: 0.25rem 0.5rem; margin-left: 0.25rem;">Re-attach (Step 7)</button>
+          <button type="button" id="show-db" style="padding: 0.25rem 0.5rem; margin-left: 0.25rem;">Show DB</button>
+          <span id="add-annotation-result" style="margin-left: 0.5rem;"></span>
+          <span id="test-reattach-result" style="margin-left: 0.5rem;"></span>
+        </div>
+        <div id="annotator-status" style="margin: 0.25rem 0;">Loading…</div>
+        <pre id="test-output" style="margin: 0.5rem 0 0; white-space: pre-wrap; min-height: 4em;">(no selection yet)</pre>
+      </aside>
+      <main id="annotatable" class="content" style="max-width: 52rem; margin: 0 auto; padding: 1rem;">
+        <h1>Annotator test document</h1>
+        <p class="lead">This page contains a <strong>full roster</strong> of content: headings, lists, tables, blockquotes, and inline styles. Use it to test selection and anchoring across different DOM structures.</p>
+
+        <h2>Introduction</h2>
+        <p>Select any text and click <b>Add annotation</b> to create an annotation. The system stores <em>Range</em>, <em>TextPosition</em>, and <em>TextQuote</em> selectors so highlights can re-attach even after the page or DOM changes.</p>
+
+        <h2>Key features</h2>
+        <ul>
+          <li>Fuzzy anchoring: multiple selector types per annotation</li>
+          <li>Re-attachment in order: Range → TextPosition → Quote context → Quote only</li>
+          <li>Storage via backend API (see BACKEND-STORAGE.md)</li>
+          <li>Custom highlight type and color</li>
+          <li>Full page URL or <code>file://</code> path for navigation</li>
+        </ul>
+
+        <h2>Implementation steps</h2>
+        <ol>
+          <li>DomTextMapper: document text and DOM ↔ offset mapping</li>
+          <li>Selectors on create: Range (XPath), TextPosition, TextQuote</li>
+          <li>Re-attach: from Range, then TextPosition, then fuzzy quote</li>
+          <li>UI: Add annotation, load annotations, draw highlights</li>
+        </ol>
+
+        <h2>Sample table</h2>
+        <p>Annotations can span table cells, list items, or mixed content.</p>
+        <table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th>Selector</th>
+              <th>Use case</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>RangeSelector</td>
+              <td>Exact XPath + offsets; fast when DOM is unchanged</td>
+            </tr>
+            <tr>
+              <td>TextPositionSelector</td>
+              <td>Character offsets in document text; robust to minor DOM changes</td>
+            </tr>
+            <tr>
+              <td>TextQuoteSelector</td>
+              <td>Prefix, exact, suffix; fuzzy match when structure changes</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h2>Blockquote and emphasis</h2>
+        <blockquote cite="https://web.hypothes.is/blog/fuzzy-anchoring/">
+          <p>Fuzzy anchoring allows annotations to find their place in the document even when the page has been edited or reformatted.</p>
+        </blockquote>
+        <p>We use <strong>bold</strong>, <em>italic</em>, and <code>inline code</code> to simulate real-world content. Try selecting across these elements.</p>
+
+        <h3>Nested lists</h3>
+        <ul>
+          <li>First topic
+            <ul>
+              <li>Sub-item A</li>
+              <li>Sub-item B</li>
+            </ul>
+          </li>
+          <li>Second topic
+            <ol>
+              <li>Step one</li>
+              <li>Step two</li>
+            </ol>
+          </li>
+        </ul>
+
+        <h2>Another table (numbers)</h2>
+        <table border="1" cellpadding="8" cellspacing="0" style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Phase</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>1</td><td>Foundation</td><td>Done</td></tr>
+            <tr><td>2</td><td>Selectors</td><td>Done</td></tr>
+            <tr><td>3</td><td>Re-attach</td><td>Partial</td></tr>
+            <tr><td>4</td><td>UI &amp; load</td><td>Pending</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Longer paragraph</h2>
+        <p>This paragraph contains a lot of text so you can select a phrase in the middle and verify that the character offsets and quote context are correct. The annotation system walks the DOM in document order to build a single document text string, then maps between that string and DOM ranges. When you save an annotation, all three selector types are stored; when you load the page later, the re-attachment logic tries each strategy until one returns a valid range. Local files opened via <code>file://</code> are supported too: the full path is stored so you can jump back to the same document.</p>
+
+        <h2>Summary</h2>
+        <p>You now have headings (h1, h2, h3), paragraphs, <strong>unordered</strong> and <strong>ordered</strong> lists, nested lists, two tables, a blockquote, and mixed inline styles. Annotate anywhere to stress-test the system.</p>
+      </main>
+    </div>
+    <script type="module" src="/src/main-web.ts"></script>
+  </body>
+</html>
