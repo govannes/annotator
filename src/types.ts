@@ -56,3 +56,18 @@ export interface FullPage {
   created: string;
   updated: string;
 }
+
+/**
+ * Which anchoring strategy succeeded (Hypothesis-style order).
+ * See https://web.hypothes.is/blog/fuzzy-anchoring/
+ */
+export type AnchoringStrategy =
+  | 'range'         // 1. RangeSelector (XPath + offsets) – exact DOM
+  | 'position'      // 2. TextPositionSelector – global char offsets
+  | 'quote-context' // 3. TextQuoteSelector prefix+exact+suffix (fuzzy)
+  | 'quote-only';   // 4. TextQuoteSelector exact only (fuzzy)
+
+/** Result of resolving an annotation to a DOM Range. Reproducible and debuggable. */
+export type AnchorResult =
+  | { ok: true; range: Range; strategy: AnchoringStrategy }
+  | { ok: false; error: string };

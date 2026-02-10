@@ -3,23 +3,11 @@
  * All load/save/delete go to the backend API.
  */
 
-import type { Annotation, AnnotationTarget } from './types';
+import { Anchorer, type BackendAnnotationResponse } from '../core';
+import type { Annotation } from '../types';
 import type { AnnotationStore, SaveOptions } from './storage';
 
 const DEFAULT_BASE_URL = 'http://localhost:3000';
-
-/** API request body for POST /annotations (camelCase). No fullPage — use POST /full-page after save. */
-interface ApiAnnotationBody {
-  id?: string;
-  source: string;
-  pageUrl: string;
-  selector: Annotation['target']['selector'];
-  bodyType?: string;
-  bodyValue?: string;
-  highlightType?: string;
-  highlightColor?: string;
-  baseUrl?: string;
-}
 
 /** API request body for POST /full-page (link snapshot to annotation). */
 interface ApiFullPageBody {
@@ -33,56 +21,6 @@ interface ApiFullPageBody {
 interface ApiFullPageResponse {
   id: string;
   contentHash: string;
-}
-
-/** API response shape (camelCase). */
-interface ApiAnnotationResponse {
-  id: string;
-  source: string;
-  pageUrl: string;
-  selector: Annotation['target']['selector'];
-  bodyType?: string;
-  bodyValue?: string;
-  created?: string;
-  highlightType?: string;
-  highlightColor?: string;
-  fullPageId?: string;
-  baseUrl?: string;
-}
-
-function apiToAnnotation(api: ApiAnnotationResponse): Annotation {
-  const target: AnnotationTarget = {
-    source: api.source,
-    selector: api.selector ?? {},
-  };
-  const ann: Annotation = {
-    id: api.id,
-    target,
-    pageUrl: api.pageUrl,
-    created: api.created,
-    highlightType: api.highlightType,
-    highlightColor: api.highlightColor,
-    fullPageId: api.fullPageId,
-    baseUrl: api.baseUrl,
-  };
-  if (api.bodyType != null || api.bodyValue != null) {
-    ann.body = { type: api.bodyType ?? '', value: api.bodyValue ?? '' };
-  }
-  return ann;
-}
-
-function annotationToApiBody(annotation: Annotation): ApiAnnotationBody {
-  return {
-    id: annotation.id,
-    source: annotation.target.source,
-    pageUrl: annotation.pageUrl ?? annotation.target.source,
-    selector: annotation.target.selector,
-    bodyType: annotation.body?.type,
-    bodyValue: annotation.body?.value,
-    highlightType: annotation.highlightType,
-    highlightColor: annotation.highlightColor,
-    baseUrl: annotation.baseUrl,
-  };
 }
 
 export interface BackendStoreConfig {
@@ -101,13 +39,13 @@ export function createBackendStore(config: BackendStoreConfig): AnnotationStore 
     async load(): Promise<Annotation[]> {
       const res = await fetch(`${baseUrl}/annotations`);
       if (!res.ok) throw new Error(`Annotations API load failed: ${res.status} ${res.statusText}`);
-      const data = (await res.json()) as ApiAnnotationResponse[];
+      const data = (await res.json()) as BackendAnnotationResponse[];
       if (!Array.isArray(data)) return [];
-      return data.map(apiToAnnotation);
+      return data.map((api) => Anchorer.fromBackendPayload(api));
     },
 
     async save(annotation: Annotation, options?: SaveOptions): Promise<Annotation> {
-      const body = annotationToApiBody(annotation);
+      const body = Anchorer.toBackendPayload(annotation);
       const res = await fetch(`${baseUrl}/annotations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,8 +55,8 @@ export function createBackendStore(config: BackendStoreConfig): AnnotationStore 
         const text = await res.text();
         throw new Error(`Annotations API save failed: ${res.status} ${res.statusText} — ${text}`);
       }
-      const api = (await res.json()) as ApiAnnotationResponse;
-      let result = apiToAnnotation(api);
+      const api = (await res.json()) as BackendAnnotationResponse;
+      let result = Anchorer.fromBackendPayload(api);
 
       if (options?.fullPage && result.id) {
         const fpBody: ApiFullPageBody = {

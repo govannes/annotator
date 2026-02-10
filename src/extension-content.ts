@@ -3,10 +3,10 @@
  * Built separately and loaded via manifest.json as the content_script.
  */
 
-import { isContentScopedPage } from './content-url';
+import { createBackendStore, type AnnotationStore } from './api';
+import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
-import { createBackendStore } from './backend-store';
-import type { AnnotationStore } from './storage';
+import { mountAnnotatorUI, SIDEBAR_POSITION_CHANGED_EVENT } from './ui';
 
 const DEFAULT_API_URL = 'http://localhost:3000';
 
@@ -208,7 +208,7 @@ function watchForDynamicContent(): void {
   reattachLog('MutationObserver active on document.body');
 }
 
-/** True if node is or is inside our panel or one of our highlight spans. */
+/** True if node is or is inside our panel, UI (sidebar/trigger), or one of our highlight spans. */
 function isOurMutation(node: Node): boolean {
   if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) return false;
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
@@ -216,6 +216,8 @@ function isOurMutation(node: Node): boolean {
   return (
     el.id === PANEL_ID ||
     el.closest?.('#' + PANEL_ID) != null ||
+    el.id === UI_CONTAINER_ID ||
+    el.closest?.('#' + UI_CONTAINER_ID) != null ||
     el.classList?.contains?.('annotator-highlight') ||
     el.closest?.('.annotator-highlight') != null
   );
@@ -241,11 +243,24 @@ function dynamicContentCallback(mutations: MutationRecord[]): void {
   );
 }
 
+const UI_CONTAINER_ID = 'annotator-ui-root';
+
 function run(): void {
   const didInject = injectPanel();
   if (!didInject) return;
   annotatingComplete = false;
   init(extensionConfig);
+  function injectAnnotatorUI(): void {
+    const root = document.getElementById(UI_CONTAINER_ID);
+    if (root) root.remove();
+    mountAnnotatorUI({
+      getStore: extensionConfig.getStore,
+      getPageUrl: extensionConfig.getPageUrl,
+      root: document.body,
+    });
+  }
+  injectAnnotatorUI();
+  window.addEventListener(SIDEBAR_POSITION_CHANGED_EVENT, () => injectAnnotatorUI());
   reattachLog('initial retry scheduled in', RETRY_DELAY_MS, 'ms');
   setTimeout(() => runReattach('initial retry'), RETRY_DELAY_MS);
   watchForDynamicContent();

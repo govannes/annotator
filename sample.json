@@ -1,0 +1,146 @@
+{
+    "pageUrl": "https://www.prisma.io/typescript",
+    "totalStored": 5,
+    "forThisPage": 3,
+    "annotations": [
+      {
+        "id": "5c231e85-4788-4ac2-ba5e-8165752c24e5",
+        "target": {
+          "source": "https://www.prisma.io/blog/announcing-prisma-postgres-early-access#why-are-there-no-cold-starts-with-prisma-postgres",
+          "selector": {
+            "range": {
+              "end": "div[1]/div[4]/section[1]/div[1]/div[3]/p[1]",
+              "start": "div[1]/div[4]/section[1]/div[1]/div[3]/p[1]",
+              "endOffset": 175,
+              "startOffset": 172
+            },
+            "textQuote": {
+              "exact": " se",
+              "prefix": "he, high-performance queries and",
+              "suffix": "amless scaling - all with an ama"
+            },
+            "textPosition": {
+              "end": 808,
+              "start": 805
+            }
+          }
+        },
+        "pageUrl": "https://www.prisma.io/typescript",
+        "created": "2026-02-09T07:40:42.931Z",
+        "highlightType": "highlight",
+        "highlightColor": "rgba(255, 220, 0, 0.35)",
+        "fullPageId": "b2ce638d-2cf9-49bc-905c-c0eca4baf0a4"
+      },
+      {
+        "id": "a6aef8e6-6388-4d95-bfaf-e6cae58cf230",
+        "target": {
+          "source": "https://stackoverflow.com/questions/tagged/javascript",
+          "selector": {
+            "range": {
+              "end": "div[5]/div[3]/div[1]/div[1]/div[3]/div[1]/div[2]/div[2]/div[2]/div[1]/div[1]/ul[1]",
+              "start": "div[5]/div[3]/div[1]/div[1]/div[3]/div[1]/div[2]/div[2]/div[1]/p[2]",
+              "endOffset": 0,
+              "startOffset": 0
+            },
+            "textQuote": {
+              "exact": "I've created a design for the pen that I like but am unsure of how I would turn the webpage into the canvas.\n    \n\n            \n                \n                    \n                        \n                        ",
+              "prefix": "user to draw onto any webpage.\n\n",
+              "suffix": "javascriptgoogle-chromecanvasgoo"
+            },
+            "textPosition": {
+              "end": 14433,
+              "start": 14218
+            }
+          }
+        },
+        "pageUrl": "https://stackoverflow.com/questions/59992959/using-html5-canvas-in-a-chrome-extension",
+        "created": "2026-02-09T07:24:41.848Z",
+        "highlightType": "highlight",
+        "highlightColor": "rgba(255, 220, 0, 0.35)",
+        "fullPageId": "9b640a2d-aa9f-402d-9f4f-d0e3261a35f4"
+      },
+      {
+        "id": "dddfd73a-4fd6-4e84-b9a7-35bdfc75f766",
+        "target": {
+          "source": "https://stackoverflow.com/questions/tagged/javascript",
+          "selector": {
+            "range": {
+              "end": "div[5]/div[3]/div[1]/div[1]/div[3]/div[1]/div[2]/div[2]/div[2]/div[1]/div[1]/ul[1]",
+              "start": "div[5]/div[3]/div[1]/div[1]/div[3]/div[1]/div[2]/div[2]/div[1]/p[2]",
+              "endOffset": 0,
+              "startOffset": 0
+            },
+            "textQuote": {
+              "exact": "I've created a design for the pen that I like but am unsure of how I would turn the webpage into the canvas.\n    \n\n            \n                \n                    \n                        \n                        ",
+              "prefix": "user to draw onto any webpage.\n\n",
+              "suffix": "javascriptgoogle-chromecanvasgoo"
+            },
+            "textPosition": {
+              "end": 14433,
+              "start": 14218
+            }
+          }
+        },
+        "pageUrl": "https://stackoverflow.com/questions/59992959/using-html5-canvas-in-a-chrome-extension",
+        "created": "2026-02-09T07:24:37.159Z",
+        "highlightType": "highlight",
+        "highlightColor": "rgba(255, 220, 0, 0.35)",
+        "fullPageId": "a83be015-838f-4293-a37d-3e76941633cc"
+      },
+      {
+        "id": "80210307-bb4a-4412-966d-c2e016546241",
+        "target": {
+          "source": "https://www.prisma.io/typescript#__next",
+          "selector": {
+            "range": {
+              "end": "div[1]/div[4]/section[1]/div[1]/div[1]/p[1]",
+              "start": "div[1]/div[4]/section[1]/div[1]/div[1]/p[1]",
+              "endOffset": 125,
+              "startOffset": 0
+            },
+            "textQuote": {
+              "exact": "Prisma provides database tools that are the perfect companions for building high-performance Next.js apps with an amazing DX.",
+              "prefix": "See code examplesWhat is Prisma?",
+              "suffix": "ORMPrisma ORM is the most popula"
+            },
+            "textPosition": {
+              "end": 471,
+              "start": 346
+            }
+          }
+        },
+        "pageUrl": "https://www.prisma.io/typescript",
+        "created": "2026-02-09T07:18:26.173Z",
+        "highlightType": "highlight",
+        "highlightColor": "rgba(255, 220, 0, 0.35)",
+        "fullPageId": "911480ec-d614-441f-81cf-0bae4c5e867d"
+      },
+      {
+        "id": "5a5de737-03e1-4f42-a44b-d3e2600f1e85",
+        "target": {
+          "source": "https://www.prisma.io/typescript#__next",
+          "selector": {
+            "range": {
+              "end": "div[1]/div[4]/section[1]/div[1]/div[2]/p[1]",
+              "start": "div[1]/div[4]/section[1]/div[1]/div[2]/p[1]",
+              "endOffset": 151,
+              "startOffset": 0
+            },
+            "textQuote": {
+              "exact": "Prisma ORM is the most popular TypeScript ORM. It comes with a human-readable schema, automated migrations and an intuitive, fully type-safe query API.",
+              "prefix": "t.js apps with an amazing DX.ORM",
+              "suffix": "Learn more about Prisma ORM→Post"
+            },
+            "textPosition": {
+              "end": 597,
+              "start": 446
+            }
+          }
+        },
+        "pageUrl": "https://www.prisma.io/typescript",
+        "created": "2026-02-09T07:15:56.765Z",
+        "highlightType": "highlight",
+        "highlightColor": "rgba(255, 220, 0, 0.35)"
+      }
+    ]
+  }

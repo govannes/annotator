@@ -6,13 +6,13 @@
  * Step 5: toTextQuoteSelector(documentText, start, end, prefixLen?, suffixLen?) → TextQuoteSelector
  */
 
-import type { RangeSelector, TextPositionSelector, TextQuoteSelector } from './types';
+import type { RangeSelector, TextPositionSelector, TextQuoteSelector } from '../types';
 import type { Mapper } from './dom-text-mapper';
 
 /**
  * Step 3 – RangeSelector (XPath + offsets).
  * Returns XPath strings for the element containing start/end of the selection,
- * plus character offsets within those elements’ text (e.g. div[1]/p[2]).
+ * plus character offsets within those elements' text (e.g. div[1]/p[2]).
  */
 export function toRangeSelector(domRange: Range, root: Node): RangeSelector {
   const startElement = getElementContaining(domRange.startContainer, domRange.startOffset);
@@ -85,7 +85,7 @@ export function nodeFromXPath(root: Element, xpath: string): Element | null {
 }
 
 /**
- * Map a character offset within an element’s text to a (Text node, offset) for Range.
+ * Map a character offset within an element's text to a (Text node, offset) for Range.
  * Returns null if offset is out of bounds.
  */
 export function offsetInElementToDomPosition(
@@ -106,7 +106,7 @@ export function offsetInElementToDomPosition(
   return result;
 }
 
-/** Character offset from the start of element’s text to (container, offset). */
+/** Character offset from the start of element's text to (container, offset). */
 function getOffsetInElement(element: Element, container: Node, offset: number): number {
   let pos = 0;
   const found = walkTextUntil(element, (node, len) => {

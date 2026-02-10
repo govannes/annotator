@@ -3,7 +3,7 @@
  * Swap in-memory/localStorage for fetch() to your backend later.
  */
 
-import type { Annotation } from './types';
+import type { Annotation } from '../types';
 
 export interface SaveOptions {
   /** When saving an annotation, optionally store a snapshot of the full page. */

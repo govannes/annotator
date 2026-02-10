@@ -10,7 +10,7 @@
 
 import type { Mapper } from './dom-text-mapper';
 import { nodeFromXPath, offsetInElementToDomPosition } from './selectors';
-import type { Annotation, RangeSelector, TextPositionSelector, TextQuoteSelector } from './types';
+import type { Annotation, RangeSelector, TextPositionSelector, TextQuoteSelector } from '../types';
 
 function getRootElement(root: Node): Element | null {
   if (root.nodeType === Node.DOCUMENT_NODE) return (root as Document).body;
@@ -21,7 +21,7 @@ function getRootElement(root: Node): Element | null {
 /**
  * Step 7 – Strategy 1: Re-attach from RangeSelector.
  * Resolves XPath start/end to DOM elements, builds a Range from stored character offsets.
- * If expectedQuote is provided, returns null when the range’s text doesn’t match.
+ * If expectedQuote is provided, returns null when the range's text doesn't match.
  */
 export function anchorFromRangeSelector(
   selector: RangeSelector,

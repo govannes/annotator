@@ -77,7 +77,7 @@ const DATA_ID_ATTRS = [
 /**
  * Get a stable content URL/key for an element by looking at:
  * 1) A permalink-style link inside (or on) the element
- * 2) The element’s id (if not generic)
+ * 2) The element's id (if not generic)
  * 3) data-* attributes that look like an id or URL
  */
 /**
@@ -136,8 +136,8 @@ function findNearestBlockAncestor(node: Node): Element | null {
 
 /**
  * Walk up from the selection and return a URL that identifies the content block.
- * - If the selection is inside a block (article, tweet, etc.), we use that block’s URL and
- *   prefer a link that matches the current page (so we get the tweet we’re on, not a link in the text).
+ * - If the selection is inside a block (article, tweet, etc.), we use that block's URL and
+ *   prefer a link that matches the current page (so we get the tweet we're on, not a link in the text).
  * - Otherwise we return the first ancestor with an id or permalink-style link.
  * Returns null if none found (caller uses page URL for source).
  */
@@ -161,7 +161,7 @@ export function getContentUrlFromRange(range: Range, _root: Element): string | n
 }
 
 /**
- * Heuristic: is this element a reasonable “block root” for content (e.g. article, post card)?
+ * Heuristic: is this element a reasonable "block root" for content (e.g. article, post card)?
  */
 function isBlockLike(el: Element): boolean {
   const tag = el.tagName.toLowerCase();
@@ -174,7 +174,7 @@ function isBlockLike(el: Element): boolean {
 }
 
 /**
- * From a permalink link, walk up to find the nearest “block” ancestor to use as root.
+ * From a permalink link, walk up to find the nearest "block" ancestor to use as root.
  */
 function getBlockRootForLink(link: Element): Element {
   let el: Element | null = link;

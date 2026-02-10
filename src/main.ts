@@ -2,15 +2,14 @@
  * Annotator – in-browser annotation with fuzzy anchoring.
  * Works as a standalone page (index.html) or inside a browser extension (content script).
  * See START.md, NEXT-STEPS.md, HIGHLIGHT-ALGORITHM.md.
+ *
+ * Uses the fluent Annotation API (core + api): Annotation.annotate().saveFullPage().done(), Annotation.load(page).into(root).
  */
 
-import { anchorAnnotation, anchorFromQuoteOnly, anchorFromRangeSelector } from './anchoring';
-import { getContentRoots, getContentUrlFromRange } from './content-url';
-import { build } from './dom-text-mapper';
-import { clearHighlights, highlightRange } from './highlighter';
-import { toRangeSelector, toTextPositionSelector, toTextQuoteSelector } from './selectors';
-import type { AnnotationStore } from './storage';
-import type { Annotation, RangeSelector } from './types';
+import { Annotation } from './annotation';
+import { Anchorer, build, getContentRoots } from './core';
+import type { AnnotationStore } from './api';
+import type { Annotation as AnnotationType, RangeSelector } from './types';
 
 export interface AnnotatorConfig {
   /** Root element to annotate (e.g. document.body or #annotatable). */
@@ -34,68 +33,27 @@ export async function init(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl, getStore } = config;
   console.log('Annotator init; root:', ROOT);
 
+  Annotation.configure({ getStore, getPageUrl });
   store = await getStore();
   if (typeof window !== 'undefined') {
     (window as unknown as { __annotatorStore: AnnotationStore }).__annotatorStore = store;
   }
 
-  const { text, mapper } = build(ROOT);
-  if (typeof window !== 'undefined') {
-    (window as unknown as { __annotatorMapper: typeof mapper }).__annotatorMapper = mapper;
-  }
-  console.log('Mapper built; text length:', text.length);
-
   const pageUrl = getPageUrl();
-  const annotations = await store.load();
-  console.log('Annotations loaded:', annotations.length);
-  const contentRoots = getContentRoots(ROOT);
-  const contentUrlToRoot = new Map(contentRoots.map((r) => [r.contentUrl, r.blockRoot]));
-  const pageLevel = annotations.filter((a) => a.target.source === pageUrl);
-  const contentLevel = annotations.filter(
-    (a) => a.target.source !== pageUrl && contentUrlToRoot.has(a.target.source)
-  );
-  let anchored = 0;
-  let currentText = text;
-  let currentMapper = mapper;
-  for (const ann of pageLevel) {
-    const range = anchorAnnotation(ann, ROOT, currentMapper, currentText);
-    if (range && !range.collapsed) {
-      const didHighlight = highlightRange(range, ann.id, {
-        type: ann.highlightType,
-        color: ann.highlightColor,
-      });
-      if (didHighlight) {
-        anchored++;
-        const next = build(ROOT);
-        currentText = next.text;
-        currentMapper = next.mapper;
-      }
-    }
-  }
-  for (const ann of contentLevel) {
-    const blockRoot = contentUrlToRoot.get(ann.target.source);
-    if (!blockRoot) continue;
-    const exact = ann.target.selector?.textQuote?.exact;
-    if (!exact) continue;
-    const { text: blockText, mapper: blockMapper } = build(blockRoot);
-    const offsets = anchorFromQuoteOnly(blockText, exact);
-    if (!offsets) continue;
-    const range = blockMapper.offsetsToRange(offsets.start, offsets.end);
-    if (range && !range.collapsed) {
-      const didHighlight = highlightRange(range, ann.id, {
-        type: ann.highlightType,
-        color: ann.highlightColor,
-      });
-      if (didHighlight) anchored++;
-    }
-  }
-  const totalForUi = pageLevel.length + contentLevel.length;
+  const loadResult = await Annotation.load(pageUrl).into(ROOT);
+  const { anchored, total: totalForUi } = loadResult;
+  console.log('[Annotator] Mapper built; annotations:', loadResult.annotations.length, `highlights: ${anchored}/${totalForUi}`);
+
   if (typeof window !== 'undefined') {
-    (window as unknown as { __annotatorMapper: typeof mapper }).__annotatorMapper = currentMapper;
+    const { mapper } = build(ROOT);
+    (window as unknown as { __annotatorMapper: typeof mapper }).__annotatorMapper = mapper;
   }
   if (totalForUi > 0) {
     console.log(`Annotations: ${anchored}/${totalForUi} re-attached for this page.`);
   }
+
+  let currentMapper = build(ROOT).mapper;
+  let currentText = build(ROOT).text;
 
   const statusEl = document.getElementById('annotator-status');
   if (statusEl) {
@@ -123,23 +81,21 @@ export async function init(config: AnnotatorConfig): Promise<void> {
         return;
       }
       try {
-        const rangeSel = toRangeSelector(range, ROOT);
-        const posSel = toTextPositionSelector(range, currentMapper);
-        const quoteSel = toTextQuoteSelector(currentText, posSel.start, posSel.end);
-        lastRangeSel = rangeSel;
-        lastQuoteExact = quoteSel.exact;
+        const selector = Anchorer.buildSelectorsFromRange(range, ROOT, currentMapper, currentText);
+        lastRangeSel = selector.range ?? null;
+        lastQuoteExact = selector.textQuote?.exact ?? null;
         const out = [
           'RangeSelector (Step 3):',
-          JSON.stringify(rangeSel, null, 2),
+          JSON.stringify(selector.range, null, 2),
           '',
           'TextPositionSelector:',
-          JSON.stringify(posSel, null, 2),
+          JSON.stringify(selector.textPosition, null, 2),
           '',
           'TextQuoteSelector:',
-          JSON.stringify(quoteSel, null, 2),
+          JSON.stringify(selector.textQuote, null, 2),
         ].join('\n');
         outputEl.textContent = out;
-        console.log('Selection selectors:', { rangeSel, posSel, quoteSel });
+        console.log('Selection selectors:', selector);
       } catch (e) {
         outputEl.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
         console.error(e);
@@ -149,8 +105,7 @@ export async function init(config: AnnotatorConfig): Promise<void> {
 
   const addBtn = document.getElementById('add-annotation');
   const addResult = document.getElementById('add-annotation-result');
-  const storeRef = store;
-  if (addBtn && addResult && storeRef) {
+  if (addBtn && addResult) {
     addBtn.addEventListener('click', async () => {
       addResult.textContent = '';
       const sel = window.getSelection();
@@ -164,45 +119,16 @@ export async function init(config: AnnotatorConfig): Promise<void> {
         return;
       }
       try {
-        const { text: docText, mapper: m } = build(ROOT);
-        const rangeSel = toRangeSelector(range, ROOT);
-        const posSel = toTextPositionSelector(range, m);
-        const quoteSel = toTextQuoteSelector(docText, posSel.start, posSel.end);
-        const pageUrl = getPageUrl();
-        const contentUrl = getContentUrlFromRange(range, ROOT);
-        const source = contentUrl ?? pageUrl;
-        const annotation: Annotation = {
-          id: crypto.randomUUID(),
-          target: {
-            source,
-            selector: { range: rangeSel, textPosition: posSel, textQuote: quoteSel },
-          },
-          pageUrl,
-          created: new Date().toISOString(),
+        const annotation = await Annotation.annotate({
+          range,
+          root: ROOT,
           highlightType: 'highlight',
           highlightColor: 'rgba(255, 220, 0, 0.35)',
-        };
-        const saveOptions =
-          typeof document !== 'undefined' && document.documentElement
-            ? {
-                fullPage: {
-                  html: document.documentElement.outerHTML,
-                  baseUrl: (() => {
-                    try {
-                      return new URL(pageUrl).origin;
-                    } catch {
-                      return pageUrl.split('#')[0]!.split('?')[0] ?? pageUrl;
-                    }
-                  })(),
-                  fullPath: pageUrl,
-                },
-              }
-            : undefined;
-        await storeRef.save(annotation, saveOptions);
-        highlightRange(range, annotation.id, {
-          type: annotation.highlightType,
-          color: annotation.highlightColor,
-        });
+        })
+          .saveFullPage(true)
+          .done();
+        currentMapper = build(ROOT).mapper;
+        currentText = build(ROOT).text;
         addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
         console.log('Annotation saved:', annotation);
       } catch (e) {
@@ -221,12 +147,23 @@ export async function init(config: AnnotatorConfig): Promise<void> {
         reattachResult.textContent = 'Select text first.';
         return;
       }
-      const range = anchorFromRangeSelector(lastRangeSel, ROOT, lastQuoteExact ?? undefined);
-      if (range) {
+      const { text, mapper } = build(ROOT);
+      const minimalAnn: { id: string; target: { source: string; selector: { range: RangeSelector; textQuote?: { exact: string; prefix: string; suffix: string } } } } = {
+        id: '',
+        target: {
+          source: '',
+          selector: {
+            range: lastRangeSel,
+            ...(lastQuoteExact != null && { textQuote: { exact: lastQuoteExact, prefix: '', suffix: '' } }),
+          },
+        },
+      };
+      const result = Anchorer.anchor(minimalAnn as AnnotationType, ROOT, { text, mapper });
+      if (result.ok) {
         const sel = window.getSelection();
         if (sel) {
           sel.removeAllRanges();
-          sel.addRange(range);
+          sel.addRange(result.range);
         }
         reattachResult.textContent = 'OK — selection restored.';
       } else {
@@ -237,10 +174,11 @@ export async function init(config: AnnotatorConfig): Promise<void> {
 
   const showDbBtn = document.getElementById('show-db');
   const dbOutputEl = document.getElementById('annotator-db-output') ?? document.getElementById('test-output');
-  if (showDbBtn && dbOutputEl && storeRef) {
+  const storeForDb = store;
+  if (showDbBtn && dbOutputEl && storeForDb) {
     showDbBtn.addEventListener('click', async () => {
       try {
-        const all = await storeRef.load();
+        const all = await storeForDb.load();
         const pageUrl = getPageUrl();
         const contentRootsForDb = getContentRoots(ROOT);
         const contentUrls = new Set(contentRootsForDb.map((r) => r.contentUrl));
@@ -275,60 +213,18 @@ export async function init(config: AnnotatorConfig): Promise<void> {
  */
 export async function reattachHighlights(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl, getStore } = config;
-  clearHighlights(ROOT);
-  const storeInstance = await getStore();
+  Annotation.configure({ getStore, getPageUrl });
   const pageUrl = getPageUrl();
-  const annotations = await storeInstance.load();
-  const contentRoots = getContentRoots(ROOT);
-  const contentUrlToRoot = new Map(contentRoots.map((r) => [r.contentUrl, r.blockRoot]));
-  const pageLevel = annotations.filter((a) => a.target.source === pageUrl);
-  const contentLevel = annotations.filter(
-    (a) => a.target.source !== pageUrl && contentUrlToRoot.has(a.target.source)
-  );
-  let anchored = 0;
-  let { text: currentText, mapper: currentMapper } = build(ROOT);
-  for (const ann of pageLevel) {
-    const range = anchorAnnotation(ann, ROOT, currentMapper, currentText);
-    if (range && !range.collapsed) {
-      const didHighlight = highlightRange(range, ann.id, {
-        type: ann.highlightType,
-        color: ann.highlightColor,
-      });
-      if (didHighlight) {
-        anchored++;
-        const next = build(ROOT);
-        currentText = next.text;
-        currentMapper = next.mapper;
-      }
-    }
-  }
-  for (const ann of contentLevel) {
-    const blockRoot = contentUrlToRoot.get(ann.target.source);
-    if (!blockRoot) continue;
-    const exact = ann.target.selector?.textQuote?.exact;
-    if (!exact) continue;
-    const { text: blockText, mapper: blockMapper } = build(blockRoot);
-    const offsets = anchorFromQuoteOnly(blockText, exact);
-    if (!offsets) continue;
-    const range = blockMapper.offsetsToRange(offsets.start, offsets.end);
-    if (range && !range.collapsed) {
-      const didHighlight = highlightRange(range, ann.id, {
-        type: ann.highlightType,
-        color: ann.highlightColor,
-      });
-      if (didHighlight) anchored++;
-    }
-  }
-  const totalForUi = pageLevel.length + contentLevel.length;
+  const result = await Annotation.load(pageUrl).into(ROOT);
   const statusEl = document.getElementById('annotator-status');
   if (statusEl) {
     statusEl.textContent =
-      totalForUi === 0
+      result.total === 0
         ? 'No annotations for this page yet.'
-        : `${anchored} of ${totalForUi} highlights shown on this page.`;
+        : `${result.anchored} of ${result.total} highlights shown on this page.`;
   }
-  if (totalForUi > 0) {
-    console.log(`[Annotator] Re-attach (retry): ${anchored}/${totalForUi} highlights.`);
+  if (result.total > 0) {
+    console.log(`[Annotator] Re-attach (retry): ${result.anchored}/${result.total} highlights.`);
   }
 }
 
