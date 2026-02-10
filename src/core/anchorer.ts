@@ -179,6 +179,8 @@ export class Anchorer {
    *
    * @see https://web.hypothes.is/blog/fuzzy-anchoring/
    */
+  private static readonly ANCHOR_LOG = '[Anchoring]';
+
   /**
    * When the same quote appears multiple times (e.g. "se" in "serverless" and "seamless"),
    * pick the range that best matches position/prefix/suffix. Returns the (possibly updated) range.
@@ -191,7 +193,12 @@ export class Anchorer {
     selector: Annotation['target']['selector']
   ): Range {
     const matches = findAllExactMatches(text, expectedQuote);
-    if (matches.length <= 1) return range;
+    if (matches.length <= 1) {
+      if (matches.length === 1) {
+        console.log(Anchorer.ANCHOR_LOG, 'disambiguateQuote: single match, no change');
+      }
+      return range;
+    }
 
     let rangeStart: number;
     let rangeEnd: number;
@@ -199,18 +206,34 @@ export class Anchorer {
       const off = mapper.rangeToOffsets(range);
       rangeStart = off.start;
       rangeEnd = off.end;
-    } catch {
+    } catch (e) {
+      console.log(Anchorer.ANCHOR_LOG, 'disambiguateQuote: rangeToOffsets failed', e);
       return range;
     }
+
+    console.log(Anchorer.ANCHOR_LOG, 'disambiguateQuote: multiple matches', {
+      matchCount: matches.length,
+      currentRangeOffsets: { start: rangeStart, end: rangeEnd },
+      positionHint: selector.textPosition?.start,
+      prefix: selector.textQuote?.prefix?.slice(0, 25),
+      suffix: selector.textQuote?.suffix?.slice(0, 25),
+    });
 
     const best = pickBestMatch(matches, text, {
       positionHint: selector.textPosition?.start,
       prefix: selector.textQuote?.prefix,
       suffix: selector.textQuote?.suffix,
     });
-    if (!best || (best.start === rangeStart && best.end === rangeEnd)) return range;
+    if (!best || (best.start === rangeStart && best.end === rangeEnd)) {
+      console.log(Anchorer.ANCHOR_LOG, 'disambiguateQuote: keeping current range', best ? 'same as best' : 'no best');
+      return range;
+    }
 
     const bestRange = mapper.offsetsToRange(best.start, best.end);
+    console.log(Anchorer.ANCHOR_LOG, 'disambiguateQuote: REPLACING range', {
+      from: { start: rangeStart, end: rangeEnd, text: text.slice(rangeStart, rangeEnd) },
+      to: { start: best.start, end: best.end, text: text.slice(best.start, best.end) },
+    });
     return bestRange ?? range;
   }
 
@@ -223,6 +246,17 @@ export class Anchorer {
     const expectedQuote = selector.textQuote?.exact?.trim();
     const { text, mapper } = context;
 
+    console.log(Anchorer.ANCHOR_LOG, 'anchor() start', {
+      annotationId: annotation.id?.slice(0, 8),
+      expectedQuote: JSON.stringify(expectedQuote),
+      hasRange: !!selector.range,
+      hasTextPosition: !!selector.textPosition,
+      hasTextQuote: !!selector.textQuote,
+      textPosition: selector.textPosition ? { start: selector.textPosition.start, end: selector.textPosition.end } : null,
+      prefix: selector.textQuote?.prefix?.slice(0, 30),
+      suffix: selector.textQuote?.suffix?.slice(0, 30),
+    });
+
     // 1. From Range Selector
     if (selector.range) {
       let range = anchorFromRangeSelector(
@@ -234,8 +268,10 @@ export class Anchorer {
         if (expectedQuote && text) {
           range = Anchorer.disambiguateQuote(range, expectedQuote, text, mapper, selector);
         }
+        console.log(Anchorer.ANCHOR_LOG, 'anchor() SUCCESS strategy=range', { rangeText: JSON.stringify(range.toString().trim()) });
         return { ok: true, range, strategy: 'range' as AnchoringStrategy };
       }
+      console.log(Anchorer.ANCHOR_LOG, 'anchor() strategy 1 (range) failed or skipped');
     }
 
     // 2. From Position Selector
@@ -249,8 +285,10 @@ export class Anchorer {
         if (expectedQuote && text) {
           range = Anchorer.disambiguateQuote(range, expectedQuote, text, mapper, selector);
         }
+        console.log(Anchorer.ANCHOR_LOG, 'anchor() SUCCESS strategy=position', { rangeText: JSON.stringify(range.toString().trim()) });
         return { ok: true, range, strategy: 'position' as AnchoringStrategy };
       }
+      console.log(Anchorer.ANCHOR_LOG, 'anchor() strategy 2 (position) failed or skipped');
     }
 
     // 3. Context-first Fuzzy Matching (prefix + exact + suffix)
@@ -264,9 +302,11 @@ export class Anchorer {
       if (offsets) {
         const range = mapper.offsetsToRange(offsets.start, offsets.end);
         if (range && !range.collapsed) {
+          console.log(Anchorer.ANCHOR_LOG, 'anchor() SUCCESS strategy=quote-context', { offsets, rangeText: JSON.stringify(range.toString().trim()) });
           return { ok: true, range, strategy: 'quote-context' as AnchoringStrategy };
         }
       }
+      console.log(Anchorer.ANCHOR_LOG, 'anchor() strategy 3 (quote-context) failed or skipped');
     }
 
     // 4. Selector-only Fuzzy Matching (exact text only); when multiple matches use position/prefix/suffix
@@ -280,11 +320,14 @@ export class Anchorer {
       if (offsets) {
         const range = mapper.offsetsToRange(offsets.start, offsets.end);
         if (range && !range.collapsed) {
+          console.log(Anchorer.ANCHOR_LOG, 'anchor() SUCCESS strategy=quote-only', { offsets, rangeText: JSON.stringify(range.toString().trim()) });
           return { ok: true, range, strategy: 'quote-only' as AnchoringStrategy };
         }
       }
+      console.log(Anchorer.ANCHOR_LOG, 'anchor() strategy 4 (quote-only) failed or skipped');
     }
 
+    console.log(Anchorer.ANCHOR_LOG, 'anchor() FAILED all strategies');
     return {
       ok: false,
       error:

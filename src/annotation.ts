@@ -148,19 +148,67 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
     }
   }
 
-  // Content-level: per-block root and context (Hypothesis-style 4 strategies per annotation)
+  // Content-level: try block root first. If the block is too small (e.g. just a link),
+  // we may resolve to the wrong occurrence (e.g. "se" in serverless). Require suffix match and fall back to page root otherwise.
   for (const ann of contentLevel) {
     const blockRoot = contentUrlToRoot.get(ann.target.source);
-    if (!blockRoot) continue;
-    const { text: blockText, mapper: blockMapper } = build(blockRoot);
-    const highlighter = createAnnotationHighlighter(ann, blockRoot, {
-      text: blockText,
-      mapper: blockMapper,
-    });
-    const result = highlighter.resolveRange();
+    const suffix = ann.target.selector?.textQuote?.suffix?.trim();
+    const requireSuffixMatch = Boolean(suffix && suffix.length > 2);
+
+    let result: import('./types').AnchorResult;
+    let highlighter: import('./core').AnnotationHighlighter;
+    let highlightRoot: Element;
+
+    if (blockRoot && root !== blockRoot) {
+      const { text: blockText, mapper: blockMapper } = build(blockRoot);
+      highlighter = createAnnotationHighlighter(ann, blockRoot, {
+        text: blockText,
+        mapper: blockMapper,
+      });
+      result = highlighter.resolveRange();
+      highlightRoot = blockRoot as Element;
+      if (result.ok && requireSuffixMatch && suffix) {
+        try {
+          const off = blockMapper.rangeToOffsets(result.range);
+          const suffixHead = suffix.slice(0, Math.min(8, suffix.length));
+          const after = blockText.slice(off.end, off.end + suffixHead.length);
+          if (!after.startsWith(suffixHead)) {
+            result = { ok: false, error: 'block match failed suffix check' };
+          }
+        } catch {
+          result = { ok: false, error: 'block rangeToOffsets failed' };
+        }
+      }
+      if (!result.ok) {
+        highlighter = createAnnotationHighlighter(ann, root, {
+          text: currentText,
+          mapper: currentMapper,
+        });
+        result = highlighter.resolveRange();
+        highlightRoot = root;
+        if (result.ok) {
+          console.log('[Annotator] Content-level anchored with page root fallback (block too small or wrong match):', ann.id?.slice(0, 8));
+        }
+      }
+    } else {
+      highlighter = createAnnotationHighlighter(ann, root, {
+        text: currentText,
+        mapper: currentMapper,
+      });
+      result = highlighter.resolveRange();
+      highlightRoot = root;
+    }
+
     if (result.ok) {
       const didHighlight = highlighter.highlightRange(result.range);
-      if (didHighlight) anchored++;
+      if (didHighlight) {
+        anchored++;
+        const next = build(highlightRoot);
+        if (highlightRoot === root) {
+          currentText = next.text;
+          currentMapper = next.mapper;
+        }
+      }
     }
   }
 
