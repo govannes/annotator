@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Annotator</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+      font-size: 14px;
+      color: #374151;
+    }
+    h1 { font-size: 16px; font-weight: 600; color: #111; margin: 0 0 12px; }
+    p { margin: 0 0 8px; line-height: 1.5; }
+    .muted { color: #6b7280; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <h1>Annotator</h1>
+  <p>This panel is in the browser chrome (Side Panel API). It stays on the side regardless of page layout.</p>
+  <p class="muted">To show annotations here, the panel would receive data from the content script via <code>chrome.runtime.sendMessage</code>. For now, use the green trigger on the page to open the in-page sidebar.</p>
+</body>
+</html>

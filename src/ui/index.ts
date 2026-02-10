@@ -1,15 +1,32 @@
 /**
- * UI entry: mount floating trigger + full-height sidebar.
- * All annotator UI lives under src/ui. Sidebar position (left/right) from localStorage.
+ * UI entry: mount floating trigger + sidebar shell.
+ * Sidebar position and width from sidebar-prefs; Cmd/Ctrl+Shift+H toggles sidebar.
  */
 
 import type { AnnotationStore } from '../api';
+import { createSidebarShell, SIDEBAR_POSITION_CHANGED_EVENT } from './sidebar-shell';
 import { createTrigger } from './trigger';
-import { createSidebar, SIDEBAR_POSITION_CHANGED_EVENT } from './sidebar';
 
 export { SIDEBAR_POSITION_CHANGED_EVENT };
 
 const CONTAINER_ID = 'annotator-ui-root';
+
+let keydownRegistered = false;
+
+function registerSidebarShortcut(): void {
+  if (keydownRegistered) return;
+  keydownRegistered = true;
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'h' && e.key !== 'H') return;
+    if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+    const root = document.getElementById(CONTAINER_ID) as (HTMLElement & { __annotatorUIHandle?: AnnotatorUIHandle }) | null;
+    const handle = root?.__annotatorUIHandle;
+    if (handle) {
+      e.preventDefault();
+      handle.toggle();
+    }
+  });
+}
 
 export interface MountAnnotatorUIOptions {
   getStore: () => Promise<AnnotationStore>;
@@ -25,21 +42,31 @@ export interface AnnotatorUIHandle {
   isOpen: () => boolean;
 }
 
-
 export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIHandle {
-  const { getStore, getPageUrl, root = document.body } = options;
+  const { getStore: _getStore, getPageUrl: _getPageUrl, root = document.body } = options;
 
   const existing = document.getElementById(CONTAINER_ID) as (HTMLElement & { __annotatorUIHandle?: AnnotatorUIHandle }) | null;
   if (existing?.__annotatorUIHandle) return existing.__annotatorUIHandle;
 
+  registerSidebarShortcut();
+
+  // Fixed viewport overlay so sidebar/trigger stay on the side regardless of page layout.
+  // Without this, appending to body can put the UI at the bottom on flex/grid pages.
   const container = document.createElement('div');
   container.id = CONTAINER_ID;
-  container.style.cssText = 'position: relative; pointer-events: none;';
-  (container as HTMLElement).style.pointerEvents = 'none';
+  container.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 2147483647;
+  `;
 
-  const sidebar = createSidebar({
-    getStore,
-    getPageUrl,
+  const sidebar = createSidebarShell({
     onClose: () => setOpen(false),
   });
   sidebar.style.display = 'none';
@@ -50,7 +77,6 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
   function setOpen(value: boolean): void {
     open = value;
     sidebar.style.display = value ? 'flex' : 'none';
-    if (value) (sidebar as unknown as { loadAnnotations?: () => Promise<void> }).loadAnnotations?.();
   }
 
   const trigger = createTrigger(() => setOpen(!open));

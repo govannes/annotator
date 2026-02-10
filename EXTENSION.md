@@ -22,8 +22,9 @@ The extension should appear in the list and be enabled.
 ## Use on a real website
 
 1. Go to any page (e.g. a news article, Wikipedia).
-2. A small **Annotator** panel appears at the bottom-right.
-3. Select some text on the page.
+2. A small **Annotator** panel appears at the bottom-right. The **sidebar** and **trigger** are in a fixed viewport overlay so they stay on the side (they no longer “append to the bottom” on flex/grid pages).
+3. You can also open **Chrome’s Side Panel** (click the extension icon or right-click → Open side panel) for a chrome-level panel; see [SIDEPANEL.md](./SIDEPANEL.md).
+4. Select some text on the page.
 4. Click **Add annotation** in the panel. The selection is saved and highlighted.
 5. Reload the page: highlights are re-attached from stored selectors.
 6. **Re-attach** restores the last selection you made (for testing anchoring).

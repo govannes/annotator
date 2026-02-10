@@ -29,11 +29,16 @@ export default defineConfig({
   },
   plugins: [
     {
-      name: 'copy-manifest',
+      name: 'copy-extension-assets',
       closeBundle() {
-        const dest = resolve(__dirname, outDir, 'manifest.json');
-        if (!existsSync(dirname(dest))) mkdirSync(dirname(dest), { recursive: true });
-        copyFileSync(resolve(__dirname, 'extension', 'manifest.json'), dest);
+        const extDir = resolve(__dirname, 'extension');
+        const destDir = resolve(__dirname, outDir);
+        if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+        copyFileSync(resolve(extDir, 'manifest.json'), resolve(destDir, 'manifest.json'));
+        const sidepanel = resolve(extDir, 'sidepanel.html');
+        if (existsSync(sidepanel)) {
+          copyFileSync(sidepanel, resolve(destDir, 'sidepanel.html'));
+        }
       },
     },
   ],
