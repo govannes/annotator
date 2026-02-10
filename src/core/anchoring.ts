@@ -58,8 +58,21 @@ export function anchorFromTextPositionSelector(
 }
 
 /**
+ * Find all occurrences of needle in documentText.
+ */
+function findAllNeedleMatches(documentText: string, needle: string): { start: number; end: number }[] {
+  const matches: { start: number; end: number }[] = [];
+  let idx = documentText.indexOf(needle, 0);
+  while (idx >= 0) {
+    matches.push({ start: idx, end: idx + needle.length });
+    idx = documentText.indexOf(needle, idx + 1);
+  }
+  return matches;
+}
+
+/**
  * Step 9 – Find quote in document using prefix + exact + suffix context.
- * Tries exact match of prefix+exact+suffix first; if hintStart is given, searches near that offset.
+ * When the same context appears multiple times, uses hintStart (position) to pick the closest match.
  * If fuzzy, falls back to whitespace-normalized matching and maps offsets back to original.
  */
 export function anchorFromQuoteContext(
@@ -75,57 +88,139 @@ export function anchorFromQuoteContext(
   const suffix = (quote.suffix ?? '').trim();
   const needle = prefix + exact + suffix;
 
-  const searchStart = hintStart != null
-    ? Math.max(0, hintStart - Math.max(prefix.length, 200))
-    : 0;
-
-  let idx = documentText.indexOf(needle, searchStart);
-  if (idx < 0 && searchStart > 0) idx = documentText.indexOf(needle, 0);
-  if (idx >= 0) {
-    return {
-      start: idx + prefix.length,
-      end: idx + prefix.length + exact.length,
-    };
+  const matches = findAllNeedleMatches(documentText, needle);
+  if (matches.length === 0 && fuzzy) {
+    const normDoc = normalizeWhitespace(documentText);
+    const normNeedle = normalizeWhitespace(needle);
+    const normPrefix = normalizeWhitespace(prefix);
+    const normExact = normalizeWhitespace(exact);
+    const nIdx = normDoc.indexOf(normNeedle);
+    if (nIdx < 0) return null;
+    const normStart = nIdx + normPrefix.length;
+    const normEnd = normStart + normExact.length;
+    return normalizedToOriginalOffsets(documentText, normStart, normEnd);
   }
 
-  if (!fuzzy) return null;
+  if (matches.length === 0) return null;
+  if (matches.length === 1) {
+    const m = matches[0]!;
+    return { start: m.start + prefix.length, end: m.start + prefix.length + exact.length };
+  }
 
-  const normDoc = normalizeWhitespace(documentText);
-  const normNeedle = normalizeWhitespace(needle);
-  const normPrefix = normalizeWhitespace(prefix);
-  const normExact = normalizeWhitespace(exact);
-  const nIdx = normDoc.indexOf(normNeedle);
-  if (nIdx < 0) return null;
+  const best = pickBestMatch(matches, documentText, { positionHint: hintStart });
+  if (!best) return null;
+  return {
+    start: best.start + prefix.length,
+    end: best.start + prefix.length + exact.length,
+  };
+}
 
-  const normStart = nIdx + normPrefix.length;
-  const normEnd = normStart + normExact.length;
-  const { start, end } = normalizedToOriginalOffsets(documentText, normStart, normEnd);
-  return { start, end };
+/**
+ * Find all occurrences of exact text in documentText (exact match only).
+ * Used to disambiguate when the same quote appears multiple times (e.g. "se" in "serverless" vs "seamless").
+ */
+export function findAllExactMatches(
+  documentText: string,
+  exact: string
+): { start: number; end: number }[] {
+  const trimmed = exact.trim();
+  if (!trimmed) return [];
+
+  const matches: { start: number; end: number }[] = [];
+  let idx = documentText.indexOf(trimmed, 0);
+  while (idx >= 0) {
+    matches.push({ start: idx, end: idx + trimmed.length });
+    idx = documentText.indexOf(trimmed, idx + 1);
+  }
+  return matches;
+}
+
+export interface PickBestMatchOptions {
+  positionHint?: number;
+  prefix?: string;
+  suffix?: string;
+}
+
+/**
+ * From multiple quote matches, pick the one that best matches position hint and/or prefix/suffix.
+ * If only one match, returns it. Otherwise prefers: (1) prefix/suffix match, (2) closest to positionHint.
+ */
+export function pickBestMatch(
+  matches: { start: number; end: number }[],
+  documentText: string,
+  options: PickBestMatchOptions = {}
+): { start: number; end: number } | null {
+  if (matches.length === 0) return null;
+  if (matches.length === 1) return matches[0]!;
+
+  const { positionHint, prefix = '', suffix = '' } = options;
+  const trim = (s: string) => s.trim();
+
+  // Score each match: higher = better. Prefer prefix/suffix match, then closest to positionHint.
+  let best: { start: number; end: number } | null = null;
+  let bestScore = -1;
+
+  for (const m of matches) {
+    const before = documentText.slice(Math.max(0, m.start - prefix.length), m.start);
+    const after = documentText.slice(m.end, Math.min(documentText.length, m.end + suffix.length));
+    const prefixMatch = prefix.length === 0 || trim(before).endsWith(trim(prefix)) || before === prefix;
+    const suffixMatch = suffix.length === 0 || trim(after).startsWith(trim(suffix)) || after.startsWith(suffix);
+    let score = 0;
+    if (prefixMatch) score += 10;
+    if (suffixMatch) score += 10;
+    if (positionHint != null) {
+      const mid = (m.start + m.end) / 2;
+      const distance = Math.abs(mid - positionHint);
+      score += Math.max(0, 100 - distance);
+    }
+    if (score > bestScore) {
+      bestScore = score;
+      best = m;
+    }
+  }
+
+  return best;
 }
 
 /**
  * Step 10 – Find exact quote in document text and return character offsets.
- * Used when Range and TextPosition fail (e.g. DOM or layout changed on reload).
- * @param startFromOffset – start searching from this character offset (for finding next occurrence).
+ * When the quote appears multiple times, uses position hint and prefix/suffix to pick the right one.
  */
 export function anchorFromQuoteOnly(
   documentText: string,
   exact: string,
-  startFromOffset = 0
+  options: {
+    startFromOffset?: number;
+    positionHint?: number;
+    prefix?: string;
+    suffix?: string;
+  } = {}
 ): { start: number; end: number } | null {
   const trimmed = exact.trim();
   if (!trimmed) return null;
 
-  const idx = documentText.indexOf(trimmed, startFromOffset);
-  if (idx >= 0) return { start: idx, end: idx + trimmed.length };
+  const { startFromOffset = 0, positionHint, prefix, suffix } = options;
 
-  const normalizedDoc = normalizeWhitespace(documentText);
-  const normalizedQuote = normalizeWhitespace(trimmed);
-  const nIdx = normalizedDoc.indexOf(normalizedQuote);
-  if (nIdx < 0) return null;
+  const matches = findAllExactMatches(documentText, trimmed);
+  if (matches.length === 0) {
+    // Fallback: whitespace-normalized search (single match)
+    const normalizedDoc = normalizeWhitespace(documentText);
+    const normalizedQuote = normalizeWhitespace(trimmed);
+    const nIdx = normalizedDoc.indexOf(normalizedQuote);
+    if (nIdx < 0) return null;
+    return normalizedToOriginalOffsets(documentText, nIdx, nIdx + normalizedQuote.length);
+  }
 
-  const { start, end } = normalizedToOriginalOffsets(documentText, nIdx, nIdx + normalizedQuote.length);
-  return { start, end };
+  if (matches.length === 1) return matches[0]!;
+
+  const best = pickBestMatch(matches, documentText, { positionHint, prefix, suffix });
+  if (best) return best;
+
+  if (positionHint == null && !prefix && !suffix && startFromOffset !== undefined) {
+    const idx = documentText.indexOf(trimmed, startFromOffset);
+    if (idx >= 0) return { start: idx, end: idx + trimmed.length };
+  }
+  return matches[0] ?? null;
 }
 
 function normalizeWhitespace(s: string): string {
@@ -197,7 +292,12 @@ export function anchorAnnotation(
     }
   }
   if (documentText && selector.textQuote?.exact) {
-    const offsets = anchorFromQuoteOnly(documentText, selector.textQuote.exact);
+    const quote = selector.textQuote;
+    const offsets = anchorFromQuoteOnly(documentText, quote.exact, {
+      positionHint: selector.textPosition?.start,
+      prefix: quote.prefix,
+      suffix: quote.suffix,
+    });
     if (offsets) {
       const r = mapper.offsetsToRange(offsets.start, offsets.end);
       if (r) return r;

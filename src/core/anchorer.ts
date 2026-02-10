@@ -30,6 +30,8 @@ import {
   anchorFromTextPositionSelector,
   anchorFromQuoteContext,
   anchorFromQuoteOnly,
+  findAllExactMatches,
+  pickBestMatch,
 } from './anchoring';
 import type {
   Annotation,
@@ -177,6 +179,41 @@ export class Anchorer {
    *
    * @see https://web.hypothes.is/blog/fuzzy-anchoring/
    */
+  /**
+   * When the same quote appears multiple times (e.g. "se" in "serverless" and "seamless"),
+   * pick the range that best matches position/prefix/suffix. Returns the (possibly updated) range.
+   */
+  private static disambiguateQuote(
+    range: Range,
+    expectedQuote: string,
+    text: string,
+    mapper: Mapper,
+    selector: Annotation['target']['selector']
+  ): Range {
+    const matches = findAllExactMatches(text, expectedQuote);
+    if (matches.length <= 1) return range;
+
+    let rangeStart: number;
+    let rangeEnd: number;
+    try {
+      const off = mapper.rangeToOffsets(range);
+      rangeStart = off.start;
+      rangeEnd = off.end;
+    } catch {
+      return range;
+    }
+
+    const best = pickBestMatch(matches, text, {
+      positionHint: selector.textPosition?.start,
+      prefix: selector.textQuote?.prefix,
+      suffix: selector.textQuote?.suffix,
+    });
+    if (!best || (best.start === rangeStart && best.end === rangeEnd)) return range;
+
+    const bestRange = mapper.offsetsToRange(best.start, best.end);
+    return bestRange ?? range;
+  }
+
   static anchor(
     annotation: Annotation,
     root: Node,
@@ -188,24 +225,30 @@ export class Anchorer {
 
     // 1. From Range Selector
     if (selector.range) {
-      const range = anchorFromRangeSelector(
+      let range = anchorFromRangeSelector(
         selector.range,
         root,
         expectedQuote ?? undefined
       );
       if (range && !range.collapsed) {
+        if (expectedQuote && text) {
+          range = Anchorer.disambiguateQuote(range, expectedQuote, text, mapper, selector);
+        }
         return { ok: true, range, strategy: 'range' as AnchoringStrategy };
       }
     }
 
     // 2. From Position Selector
     if (selector.textPosition) {
-      const range = anchorFromTextPositionSelector(
+      let range = anchorFromTextPositionSelector(
         selector.textPosition,
         mapper,
         expectedQuote ?? undefined
       );
       if (range && !range.collapsed) {
+        if (expectedQuote && text) {
+          range = Anchorer.disambiguateQuote(range, expectedQuote, text, mapper, selector);
+        }
         return { ok: true, range, strategy: 'position' as AnchoringStrategy };
       }
     }
@@ -226,9 +269,14 @@ export class Anchorer {
       }
     }
 
-    // 4. Selector-only Fuzzy Matching (exact text only)
+    // 4. Selector-only Fuzzy Matching (exact text only); when multiple matches use position/prefix/suffix
     if (text && selector.textQuote?.exact) {
-      const offsets = anchorFromQuoteOnly(text, selector.textQuote.exact);
+      const quote = selector.textQuote;
+      const offsets = anchorFromQuoteOnly(text, quote.exact, {
+        positionHint: selector.textPosition?.start,
+        prefix: quote.prefix,
+        suffix: quote.suffix,
+      });
       if (offsets) {
         const range = mapper.offsetsToRange(offsets.start, offsets.end);
         if (range && !range.collapsed) {
