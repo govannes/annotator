@@ -40,6 +40,9 @@ async function getPortalUrl(): Promise<string> {
 }
 
 const PANEL_ID = 'annotator-extension-panel';
+const TOOLBAR_ID = 'annotator-extension-toolbar';
+const TOOLBAR_DRAG_HANDLE_ID = 'annotator-toolbar-drag-handle';
+const TOOLBAR_OFFSET_STORAGE_KEY = 'annotatorToolbarOffsetX';
 const RETRY_DELAY_MS = 2500;
 const REINJECT_DEBOUNCE_MS = 500;
 const DYNAMIC_REATTACH_DEBOUNCE_MS = 800;
@@ -51,75 +54,212 @@ function reattachLog(msg: string, ...args: unknown[]): void {
   }
 }
 
+/** Material Icons (24px outline style) as inline SVG. */
+const ICONS = {
+  moreHoriz:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>',
+  palette:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>',
+  noteAdd:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
+  highlight:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v4h6v-4l3-3V9H6v5zm2-3h8v2.17l-2.59 2.58L12 16l-1.41-1.41L8 13.17V11zM2 2v2h2v14h14v2h2v-2h2V4h2V2H2z"/></svg>',
+  delete:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+};
+
 function injectPanel(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
 
   const panel = document.createElement('div');
   panel.id = PANEL_ID;
   panel.innerHTML = `
-    <div id="annotator-extension-toolbar" style="
+    <div id="${TOOLBAR_ID}" style="
       position: fixed;
+      left: 50%;
       bottom: 16px;
-      right: 16px;
       z-index: 2147483647;
       font-family: system-ui, -apple-system, sans-serif;
       font-size: 13px;
+      transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)));
+      display: flex;
+      align-items: center;
+      gap: 0;
       background: #1a1a1a;
       color: #eee;
-      padding: 10px 12px;
-      border-radius: 8px;
+      padding: 6px 4px 6px 2px;
+      border-radius: 12px;
       box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-      max-width: 320px;
     ">
-      <div style="font-weight: 600; margin-bottom: 8px;">Annotator</div>
-      <div style="margin-bottom: 6px;">
-        <button type="button" id="add-annotation" style="
-          padding: 6px 12px;
-          margin-right: 6px;
-          background: #2d7d46;
-          color: white;
-          border: none;
-          border-radius: 6px;
-          cursor: pointer;
-        ">Add annotation</button>
-        <button type="button" id="test-reattach" style="
-          padding: 6px 12px;
-          margin-right: 6px;
-          background: #333;
-          color: #eee;
-          border: 1px solid #555;
-          border-radius: 6px;
-          cursor: pointer;
-        ">Re-attach</button>
-        <button type="button" id="show-db" style="
-          padding: 6px 12px;
-          background: #444;
-          color: #ccc;
-          border: 1px solid #555;
-          border-radius: 6px;
-          cursor: pointer;
-        ">Show DB</button>
+      <div id="${TOOLBAR_DRAG_HANDLE_ID}" style="
+        cursor: grab;
+        padding: 8px 6px;
+        margin-right: 2px;
+        border-radius: 8px;
+        color: #888;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        user-select: none;
+      " title="Drag to move toolbar">${ICONS.moreHoriz}</div>
+      <div style="
+        display: flex;
+        align-items: center;
+        gap: 2px;
+        padding-left: 4px;
+        border-left: 1px solid #333;
+      ">
+        <button type="button" id="annotator-btn-color" class="annotator-toolbar-btn" title="Pick highlight color">${ICONS.palette}</button>
+        <button type="button" id="add-annotation" class="annotator-toolbar-btn annotator-toolbar-btn-highlight" title="Highlight selection">${ICONS.highlight}</button>
+        <button type="button" id="annotator-btn-note" class="annotator-toolbar-btn" title="Add note">${ICONS.noteAdd}</button>
+        <button type="button" id="annotator-btn-delete" class="annotator-toolbar-btn" title="Delete selected highlight">${ICONS.delete}</button>
       </div>
-      <div id="add-annotation-result" style="margin-left: 4px; color: #8f8;"></div>
-      <div id="test-reattach-result" style="margin-left: 4px; color: #8f8;"></div>
-      <div id="annotator-status" style="margin-top: 6px; color: #999; font-size: 12px;">Loading…</div>
-      <pre id="annotator-db-output" style="
-        margin-top: 8px;
-        padding: 8px;
-        background: #222;
-        color: #8f8;
-        font-size: 11px;
-        max-height: 200px;
-        overflow: auto;
-        white-space: pre-wrap;
-        word-break: break-all;
-        border-radius: 4px;
-        display: none;
-      "></pre>
     </div>
+    <style>
+      .annotator-toolbar-btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        border: none;
+        border-radius: 8px;
+        background: transparent;
+        color: #ccc;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .annotator-toolbar-btn:hover { background: #333; color: #eee; }
+      .annotator-toolbar-btn:active { background: #444; }
+      .annotator-toolbar-btn svg { width: 20px; height: 20px; }
+      .annotator-toolbar-btn-highlight { color: #8bc34a; }
+      .annotator-toolbar-btn-highlight:hover { background: #2d4a1a; color: #a5d6a7; }
+    </style>
+    <div id="add-annotation-result" style="position:fixed;left:-9999px;pointer-events:none;" aria-hidden="true"></div>
+    <div id="test-reattach-result" style="position:fixed;left:-9999px;pointer-events:none;" aria-hidden="true"></div>
+    <div id="annotator-status" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);color:#999;font-size:12px;z-index:2147483646;pointer-events:none;"></div>
   `;
   document.body.appendChild(panel);
+  setupToolbarDrag();
+  setupToolbarColorPicker();
   return true;
+}
+
+function setupToolbarColorPicker(): void {
+  const btn = document.getElementById('annotator-btn-color');
+  if (!btn) return;
+
+  const STORAGE_KEY = 'annotatorHighlightColor';
+  const DEFAULT = 'rgba(255, 220, 0, 0.35)';
+
+  function loadStored(): string {
+    try {
+      const v = localStorage.getItem(STORAGE_KEY);
+      if (v) return v;
+    } catch (_) {}
+    return DEFAULT;
+  }
+
+  function saveColor(c: string): void {
+    try {
+      localStorage.setItem(STORAGE_KEY, c);
+    } catch (_) {}
+    if (typeof window !== 'undefined') {
+      (window as unknown as { __annotatorHighlightColor?: string }).__annotatorHighlightColor = c;
+    }
+  }
+
+  saveColor(loadStored());
+
+  btn.addEventListener('click', () => {
+    if (typeof (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper !== 'undefined') {
+      const EyeDropper = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
+      const dropper = new EyeDropper();
+      dropper.open()
+        .then((result: { sRGBHex: string }) => {
+          const hex = result.sRGBHex;
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          saveColor(`rgba(${r},${g},${b},0.35)`);
+        })
+        .catch(() => {
+          openFallbackColorPicker(saveColor);
+        });
+    } else {
+      openFallbackColorPicker(saveColor);
+    }
+  });
+}
+
+function openFallbackColorPicker(saveColor: (c: string) => void): void {
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = '#ffdc00';
+  input.style.position = 'fixed';
+  input.style.left = '-9999px';
+  input.style.top = '0';
+  document.body.appendChild(input);
+  input.click();
+  input.addEventListener('change', () => {
+    const hex = input.value;
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    saveColor(`rgba(${r},${g},${b},0.35)`);
+    document.body.removeChild(input);
+  });
+  input.addEventListener('blur', () => {
+    if (input.parentNode) document.body.removeChild(input);
+  }, { once: true });
+}
+
+function setupToolbarDrag(): void {
+  const toolbar = document.getElementById(TOOLBAR_ID);
+  const handle = document.getElementById(TOOLBAR_DRAG_HANDLE_ID);
+  if (!toolbar || !handle) return;
+
+  const toolbarEl = toolbar;
+  const storageKey = TOOLBAR_OFFSET_STORAGE_KEY;
+  const pageKey = `${storageKey}_${window.location.hostname}`;
+
+  function getStoredOffset(): number {
+    try {
+      const v = localStorage.getItem(pageKey);
+      if (v != null) return parseInt(v, 10) || 0;
+    } catch (_) {}
+    return 0;
+  }
+
+  function setOffsetPx(px: number): void {
+    toolbarEl.style.setProperty('--annotator-toolbar-offset-x', `${px}px`);
+    try {
+      localStorage.setItem(pageKey, String(px));
+    } catch (_) {}
+  }
+
+  setOffsetPx(getStoredOffset());
+
+  let startX = 0;
+  let startOffset = 0;
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
+    e.preventDefault();
+    startX = e.clientX;
+    startOffset = getStoredOffset();
+    handle.style.cursor = 'grabbing';
+    const onMove = (e2: MouseEvent) => {
+      const dx = e2.clientX - startX;
+      setOffsetPx(startOffset + dx);
+    };
+    const onUp = () => {
+      handle.style.cursor = 'grab';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
 }
 
 const extensionConfig = {

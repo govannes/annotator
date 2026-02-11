@@ -7,9 +7,15 @@
  */
 
 import { Annotation } from './annotation';
-import { Anchorer, build, getContentRoots } from './core';
+import { Anchorer, build, getHighlightAnnotationId } from './core';
 import type { AnnotationStore } from './api';
 import type { Annotation as AnnotationType, RangeSelector } from './types';
+
+declare global {
+  interface Window {
+    __annotatorHighlightColor?: string;
+  }
+}
 
 export interface AnnotatorConfig {
   /** Root element to annotate (e.g. document.body or #annotatable). */
@@ -103,6 +109,8 @@ export async function init(config: AnnotatorConfig): Promise<void> {
     });
   }
 
+  const highlightColor = () => window.__annotatorHighlightColor ?? 'rgba(255, 220, 0, 0.35)';
+
   const addBtn = document.getElementById('add-annotation');
   const addResult = document.getElementById('add-annotation-result');
   if (addBtn && addResult) {
@@ -123,7 +131,7 @@ export async function init(config: AnnotatorConfig): Promise<void> {
           range,
           root: ROOT,
           highlightType: 'highlight',
-          highlightColor: 'rgba(255, 220, 0, 0.35)',
+          highlightColor: highlightColor(),
         })
           .saveFullPage(true)
           .done();
@@ -131,6 +139,71 @@ export async function init(config: AnnotatorConfig): Promise<void> {
         currentText = build(ROOT).text;
         addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
         console.log('Annotation saved:', annotation);
+      } catch (e) {
+        addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
+        console.error(e);
+      }
+    });
+  }
+
+  const noteBtn = document.getElementById('annotator-btn-note');
+  if (noteBtn && addResult) {
+    noteBtn.addEventListener('click', async () => {
+      addResult.textContent = '';
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        addResult.textContent = 'Select text first.';
+        return;
+      }
+      const range = sel.getRangeAt(0).cloneRange();
+      if (!ROOT.contains(range.commonAncestorContainer)) {
+        addResult.textContent = 'Selection outside annotatable area.';
+        return;
+      }
+      const noteText = window.prompt('Add a note to this highlight:');
+      if (noteText == null) return;
+      try {
+        const annotation = await Annotation.annotate({
+          range,
+          root: ROOT,
+          highlightType: 'highlight',
+          highlightColor: highlightColor(),
+          body: { type: 'TextualBody', value: noteText },
+        })
+          .saveFullPage(true)
+          .done();
+        currentMapper = build(ROOT).mapper;
+        currentText = build(ROOT).text;
+        addResult.textContent = `Saved with note (${annotation.id.slice(0, 8)}…).`;
+      } catch (e) {
+        addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
+        console.error(e);
+      }
+    });
+  }
+
+  let selectedAnnotationId: string | null = null;
+  ROOT.addEventListener('click', (e) => {
+    const el = (e.target as Node) instanceof Element ? (e.target as Element) : null;
+    const highlightEl = el?.closest?.('.annotator-highlight');
+    if (highlightEl) {
+      selectedAnnotationId = getHighlightAnnotationId(highlightEl as Element);
+    }
+  });
+
+  const deleteBtn = document.getElementById('annotator-btn-delete');
+  if (deleteBtn && addResult) {
+    deleteBtn.addEventListener('click', async () => {
+      if (!selectedAnnotationId) {
+        addResult.textContent = 'Click a highlight first, then delete.';
+        return;
+      }
+      if (!store) return;
+      try {
+        await store.delete(selectedAnnotationId);
+        selectedAnnotationId = null;
+        await reattachHighlights(config);
+        addResult.textContent = 'Deleted.';
       } catch (e) {
         addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
         console.error(e);
@@ -168,40 +241,6 @@ export async function init(config: AnnotatorConfig): Promise<void> {
         reattachResult.textContent = 'OK — selection restored.';
       } else {
         reattachResult.textContent = 'Failed (null).';
-      }
-    });
-  }
-
-  const showDbBtn = document.getElementById('show-db');
-  const dbOutputEl = document.getElementById('annotator-db-output') ?? document.getElementById('test-output');
-  const storeForDb = store;
-  if (showDbBtn && dbOutputEl && storeForDb) {
-    showDbBtn.addEventListener('click', async () => {
-      try {
-        const all = await storeForDb.load();
-        const pageUrl = getPageUrl();
-        const contentRootsForDb = getContentRoots(ROOT);
-        const contentUrls = new Set(contentRootsForDb.map((r) => r.contentUrl));
-        const forThisPage = all.filter(
-          (a) =>
-            a.target.source === pageUrl ||
-            contentUrls.has(a.target.source) ||
-            a.pageUrl === pageUrl
-        );
-        const fullData = {
-          pageUrl,
-          totalStored: all.length,
-          forThisPage: forThisPage.length,
-          annotations: all,
-        };
-        dbOutputEl.textContent = JSON.stringify(fullData, null, 2);
-        if (dbOutputEl.id === 'annotator-db-output') {
-          const el = dbOutputEl as HTMLElement;
-          el.style.display = el.style.display === 'block' ? 'none' : 'block';
-        }
-      } catch (e) {
-        dbOutputEl.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
-        if (dbOutputEl.id === 'annotator-db-output') (dbOutputEl as HTMLElement).style.display = 'block';
       }
     });
   }
