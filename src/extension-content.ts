@@ -3,7 +3,7 @@
  * Built separately and loaded via manifest.json as the content_script.
  */
 
-import { createBackendStore, type AnnotationStore } from './api';
+import { createBackendStore, createNotesApi, type AnnotationStore } from './api';
 import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
 import { mountAnnotatorUI, SIDEBAR_POSITION_CHANGED_EVENT } from './ui';
@@ -24,6 +24,19 @@ function getStore(): Promise<AnnotationStore> {
     backendStorePromise = getApiBaseUrl().then((baseUrl) => createBackendStore({ baseUrl }));
   }
   return backendStorePromise;
+}
+
+function getNotesApi() {
+  return getApiBaseUrl().then((baseUrl) => createNotesApi(baseUrl));
+}
+
+/** Portal URL for "Go to portal" (full dashboard). Default '' = link hidden. Can be set in chrome.storage.local.annotatorPortalUrl. */
+async function getPortalUrl(): Promise<string> {
+  if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+    const out = await chrome.storage.local.get('annotatorPortalUrl');
+    if (out.annotatorPortalUrl && typeof out.annotatorPortalUrl === 'string') return out.annotatorPortalUrl;
+  }
+  return '';
 }
 
 const PANEL_ID = 'annotator-extension-panel';
@@ -256,6 +269,8 @@ function run(): void {
     mountAnnotatorUI({
       getStore: extensionConfig.getStore,
       getPageUrl: extensionConfig.getPageUrl,
+      getNotesApi,
+      getPortalUrl: () => getPortalUrl(),
       root: document.body,
     });
   }

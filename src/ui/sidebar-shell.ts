@@ -1,43 +1,53 @@
 /**
- * Sidebar shell: container with position, width presets, resizable drag,
- * placeholder top bar, context selector, tab strip, and main content area.
- * Step 1: layout only; tab content is placeholder text.
+ * Sidebar shell: current-page only. Tabs: Annotations, Notes; Settings via gear.
+ * No context selector; "Go to portal" link for full dashboard.
  */
 
 import {
   getSidebarPosition,
-  setSidebarPosition,
   getSidebarWidth,
   setSidebarWidth,
   getSidebarWidthMin,
   getSidebarWidthMax,
-  SIDEBAR_WIDTH_SMALL,
-  SIDEBAR_WIDTH_MEDIUM,
-  SIDEBAR_WIDTH_LARGE,
-  type SidebarPosition,
 } from './sidebar-prefs';
 
 export const SIDEBAR_POSITION_CHANGED_EVENT = 'annotator-sidebar-position-changed';
 
 const SIDEBAR_ID = 'annotator-sidebar';
 
-const TAB_IDS = ['annotations', 'notes', 'projects', 'authors', 'chat'] as const;
+/** Sidebar is always "this page"; payload still has context for compatibility. */
+export type SidebarContext = 'this-page';
+
+/** Optional API on the sidebar element. */
+export interface SidebarShellApi {
+  __renderContent?: (payload: { tabId: TabId; context: SidebarContext }) => void;
+  __getMainContent?: () => HTMLElement;
+  __getActiveTab?: () => TabId;
+  __refresh?: () => void;
+}
+
+const TAB_IDS = ['annotations', 'notes', 'settings'] as const;
 type TabId = (typeof TAB_IDS)[number];
+
+/** Tab IDs that get a tab button in the strip; settings is opened via gear only. */
+const TAB_IDS_STRIP: TabId[] = ['annotations', 'notes'];
 
 const TAB_LABELS: Record<TabId, string> = {
   annotations: 'Annotations',
   notes: 'Notes',
-  projects: 'Projects',
-  authors: 'Authors',
-  chat: 'Chat',
+  settings: 'Settings',
 };
 
 export interface SidebarShellOptions {
   onClose: () => void;
+  /** Current page URL (for domain/title in top bar). If omitted, shows generic label. */
+  getPageUrl?: () => string;
+  /** Portal URL for "Go to portal" (full dashboard). Sync or async; empty = link hidden. */
+  getPortalUrl?: () => string | Promise<string>;
 }
 
 export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
-  const { onClose } = options;
+  const { onClose, getPortalUrl } = options;
   const position = getSidebarPosition();
   const isLeft = position === 'left';
   let currentWidth = getSidebarWidth();
@@ -67,138 +77,107 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
     sidebar.style.width = `${w}px`;
   }
 
-  // ----- Placeholder top bar -----
+  // ----- Top bar: left (logo), right (settings, collapse) -----
   const topBar = document.createElement('header');
   topBar.setAttribute('role', 'banner');
   topBar.style.cssText = `
     flex-shrink: 0;
-    padding: 12px 16px;
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
-    display: flex;
+    padding: 10px 14px;
+    background: #fafafa;
+    border-bottom: 1px solid #e8e8e8;
+    display: grid;
+    grid-template-columns: 1fr auto;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-  `;
-  const pos = getSidebarPosition();
-  topBar.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-      <span style="font-size: 16px; font-weight: 600; color: #111;">Highlighter</span>
-      <span style="color: #9ca3af; font-size: 12px;">|</span>
-      <div style="display: flex; gap: 4px;">
-        <button type="button" data-pos="left" aria-label="Sidebar on left" style="
-          background: ${pos === 'left' ? '#e5e7eb' : 'transparent'};
-          border: 1px solid #d1d5db;
-          padding: 4px 8px;
-          cursor: pointer;
-          color: #374151;
-          border-radius: 4px;
-          font-size: 12px;
-        ">Left</button>
-        <button type="button" data-pos="right" aria-label="Sidebar on right" style="
-          background: ${pos === 'right' ? '#e5e7eb' : 'transparent'};
-          border: 1px solid #d1d5db;
-          padding: 4px 8px;
-          cursor: pointer;
-          color: #374151;
-          border-radius: 4px;
-          font-size: 12px;
-        ">Right</button>
-      </div>
-      <span style="color: #9ca3af; font-size: 12px;">|</span>
-      <div style="display: flex; gap: 2px;">
-        <button type="button" data-width="${SIDEBAR_WIDTH_SMALL}" aria-label="Small width" style="
-          background: ${currentWidth === SIDEBAR_WIDTH_SMALL ? '#e5e7eb' : 'transparent'};
-          border: 1px solid #d1d5db;
-          padding: 4px 6px;
-          cursor: pointer;
-          color: #374151;
-          border-radius: 4px;
-          font-size: 11px;
-        ">S</button>
-        <button type="button" data-width="${SIDEBAR_WIDTH_MEDIUM}" aria-label="Medium width" style="
-          background: ${currentWidth === SIDEBAR_WIDTH_MEDIUM ? '#e5e7eb' : 'transparent'};
-          border: 1px solid #d1d5db;
-          padding: 4px 6px;
-          cursor: pointer;
-          color: #374151;
-          border-radius: 4px;
-          font-size: 11px;
-        ">M</button>
-        <button type="button" data-width="${SIDEBAR_WIDTH_LARGE}" aria-label="Large width" style="
-          background: ${currentWidth === SIDEBAR_WIDTH_LARGE ? '#e5e7eb' : 'transparent'};
-          border: 1px solid #d1d5db;
-          padding: 4px 6px;
-          cursor: pointer;
-          color: #374151;
-          border-radius: 4px;
-          font-size: 11px;
-        ">L</button>
-      </div>
-    </div>
-    <button type="button" id="annotator-sidebar-close" aria-label="Close sidebar" style="
-      background: none;
-      border: none;
-      padding: 6px;
-      cursor: pointer;
-      color: #6b7280;
-      border-radius: 6px;
-      font-size: 18px;
-      line-height: 1;
-    ">×</button>
+    gap: 10px;
+    min-height: 48px;
   `;
 
-  topBar.querySelectorAll('button[data-pos]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const p = (btn as HTMLButtonElement).dataset.pos as SidebarPosition;
-      if (p && p !== getSidebarPosition()) {
-        setSidebarPosition(p);
-        window.dispatchEvent(new CustomEvent(SIDEBAR_POSITION_CHANGED_EVENT));
+  const logo = document.createElement('div');
+  logo.setAttribute('aria-hidden', 'true');
+  logo.style.cssText = `
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #e5e7eb;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 600;
+  `;
+  logo.textContent = 'A';
+  topBar.appendChild(logo);
+
+  const right = document.createElement('div');
+  right.style.cssText = `display: flex; align-items: center; gap: 6px; justify-self: end; flex-wrap: wrap;`;
+  const portalLink = document.createElement('a');
+  portalLink.target = '_blank';
+  portalLink.rel = 'noopener noreferrer';
+  portalLink.textContent = 'Go to portal';
+  portalLink.style.cssText = `
+    font-size: 12px;
+    color: #2563eb;
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 6px;
+    display: none;
+  `;
+  portalLink.addEventListener('mouseenter', () => { portalLink.style.background = '#eff6ff'; });
+  portalLink.addEventListener('mouseleave', () => { portalLink.style.background = 'none'; });
+  right.appendChild(portalLink);
+  const rawPortal = getPortalUrl?.();
+  if (rawPortal != null) {
+    Promise.resolve(rawPortal).then((url) => {
+      if (url && typeof url === 'string') {
+        portalLink.href = url;
+        portalLink.style.display = '';
       }
     });
-  });
-  topBar.querySelectorAll('button[data-width]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const w = parseInt((btn as HTMLButtonElement).dataset.width ?? '420', 10);
-      applyWidth(w);
-      (btn as HTMLButtonElement).style.background = '#e5e7eb';
-      topBar.querySelectorAll('button[data-width]').forEach((b) => {
-        if (b !== btn) (b as HTMLButtonElement).style.background = 'transparent';
-      });
-    });
-  });
-  const closeBtn = topBar.querySelector('#annotator-sidebar-close') as HTMLButtonElement;
-  if (closeBtn) closeBtn.addEventListener('click', onClose);
+  }
+  const settingsBtn = document.createElement('button');
+  settingsBtn.type = 'button';
+  settingsBtn.setAttribute('aria-label', 'Settings');
+  settingsBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`;
+  settingsBtn.style.cssText = `
+    background: none;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    color: #6b7280;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+  settingsBtn.addEventListener('mouseenter', () => { settingsBtn.style.color = '#374151'; settingsBtn.style.background = '#eee'; });
+  settingsBtn.addEventListener('mouseleave', () => { settingsBtn.style.color = '#6b7280'; settingsBtn.style.background = 'none'; });
+  const collapseBtn = document.createElement('button');
+  collapseBtn.type = 'button';
+  collapseBtn.id = 'annotator-sidebar-close';
+  collapseBtn.setAttribute('aria-label', 'Close sidebar');
+  collapseBtn.innerHTML = '×';
+  collapseBtn.style.cssText = `
+    background: none;
+    border: none;
+    padding: 6px 8px;
+    cursor: pointer;
+    color: #6b7280;
+    border-radius: 6px;
+    font-size: 20px;
+    line-height: 1;
+  `;
+  collapseBtn.addEventListener('mouseenter', () => { collapseBtn.style.color = '#111'; collapseBtn.style.background = '#eee'; });
+  collapseBtn.addEventListener('mouseleave', () => { collapseBtn.style.color = '#6b7280'; collapseBtn.style.background = 'none'; });
+  collapseBtn.addEventListener('click', onClose);
+  right.appendChild(settingsBtn);
+  right.appendChild(collapseBtn);
+  topBar.appendChild(right);
 
   sidebar.appendChild(topBar);
 
-  // ----- Placeholder context selector -----
-  const contextBar = document.createElement('div');
-  contextBar.style.cssText = `
-    flex-shrink: 0;
-    padding: 8px 16px;
-    background: #fff;
-    border-bottom: 1px solid #e5e7eb;
-  `;
-  contextBar.innerHTML = `
-    <select id="annotator-context-selector" aria-label="Context" style="
-      width: 100%;
-      padding: 6px 10px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 13px;
-      color: #374151;
-      background: #fff;
-    ">
-      <option value="this-page">This Page</option>
-      <option value="this-project">This Project</option>
-      <option value="all-notes">All Notes</option>
-      <option value="all-projects">All Projects</option>
-    </select>
-  `;
-  sidebar.appendChild(contextBar);
-
-  // ----- Tab strip -----
+  // ----- Tab strip (Annotations | Notes); Settings via gear only -----
   let activeTab: TabId = 'annotations';
   const tabStrip = document.createElement('nav');
   tabStrip.setAttribute('aria-label', 'Tabs');
@@ -221,9 +200,21 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
     font-size: 14px;
   `;
 
+  const CONTEXT_THIS_PAGE: SidebarContext = 'this-page';
+
+  function refreshContent(): void {
+    const payload = { tabId: activeTab, context: CONTEXT_THIS_PAGE };
+    const customRender = (sidebar as unknown as { __renderContent?: (p: { tabId: TabId; context: SidebarContext }) => void })
+      .__renderContent;
+    if (customRender) {
+      customRender(payload);
+      return;
+    }
+    mainContent.textContent = TAB_LABELS[activeTab];
+  }
+
   function setTab(tabId: TabId): void {
     activeTab = tabId;
-    mainContent.textContent = TAB_LABELS[tabId];
     tabStrip.querySelectorAll('[role="tab"]').forEach((el) => {
       const isSelected = (el as HTMLElement).dataset.tabId === activeTab;
       el.setAttribute('aria-selected', isSelected ? 'true' : 'false');
@@ -231,9 +222,12 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
       (el as HTMLElement).style.borderBottomColor = isSelected ? 'transparent' : 'transparent';
       (el as HTMLElement).style.fontWeight = isSelected ? '600' : '400';
     });
+    refreshContent();
   }
 
-  TAB_IDS.forEach((tabId) => {
+  settingsBtn.addEventListener('click', () => setTab('settings'));
+
+  TAB_IDS_STRIP.forEach((tabId) => {
     const tab = document.createElement('button');
     tab.type = 'button';
     tab.setAttribute('role', 'tab');
@@ -257,6 +251,11 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
 
   sidebar.appendChild(tabStrip);
   sidebar.appendChild(mainContent);
+
+  (sidebar as unknown as SidebarShellApi).__getMainContent = () => mainContent;
+  (sidebar as unknown as SidebarShellApi).__getActiveTab = () => activeTab;
+  (sidebar as unknown as SidebarShellApi).__refresh = () => refreshContent();
+
   setTab('annotations');
 
   // ----- Resize handle (inner edge) -----

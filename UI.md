@@ -24,6 +24,23 @@ It shows annotations, notes, projects, and authors **filtered by what the user i
 
 ---
 
+## Design inspiration: Frill widget
+
+Use [Frill’s embeddable widget](https://frill.co/widget) as a visual reference for how the Highlighter sidebar should feel and look.
+
+**What to take from it:**
+
+* **Clean, minimal widget** — One compact panel that opens from the side; simple trigger, no clutter. The Highlighter trigger and sidebar should feel similarly contained and “one surface.”
+* **Tabbed sections** — Frill uses clear sections (Ideas, Roadmap, Announcements). We use Annotations, Notes, Projects, Authors (and reserved Chat). Same idea: clear tab strip, one main content area, no nested chrome.
+* **Card design** — Cards with clear hierarchy: title/headline, short body or meta (author, date, status), optional counts or badges. Soft surfaces, minimal borders, comfortable padding. Avoid heavy shadows or noisy borders.
+* **Fits the page** — Frill offers Light/Dark (and themes) so the widget fits the host site. We support Light/Dark/System and calm, editorial styling so the sidebar doesn’t fight the page.
+* **Discrete when closed** — Widget stays out of the way until needed. Our trigger and closed state should feel the same: visible but not dominant.
+* **Professional tone** — Readable typography, consistent spacing, color used for meaning (e.g. status, highlights), not decoration.
+
+Do not copy Frill’s exact layout or copy; use it as a quality bar for “simple, elegant, embeddable panel” and apply that to our structure (top bar, context selector, tabs, cards, empty states).
+
+---
+
 ## Sidebar Container
 
 * Docked panel (Chrome extension)
@@ -309,7 +326,7 @@ Examples:
 
 ## Visual Tone
 
-* Editorial, calm
+* Editorial, calm (see [Frill widget](https://frill.co/widget) for “clean, embeddable panel” reference)
 * Soft surfaces, minimal borders
 * Color reserved for meaning (highlights)
 * Motion: subtle, 150–200ms

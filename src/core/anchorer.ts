@@ -76,6 +76,8 @@ export interface BackendAnnotationResponse {
   highlightColor?: string;
   fullPageId?: string;
   baseUrl?: string;
+  authorId?: string;
+  projectId?: string;
 }
 
 /** Context required to re-attach an annotation (document text + DOM↔offset mapper). */
@@ -162,6 +164,8 @@ export class Anchorer {
       highlightColor: api.highlightColor,
       fullPageId: api.fullPageId,
       baseUrl: api.baseUrl,
+      authorId: api.authorId,
+      projectId: api.projectId,
     };
     if (api.bodyType != null || api.bodyValue != null) {
       ann.body = { type: api.bodyType ?? '', value: api.bodyValue ?? '' };

@@ -45,6 +45,32 @@ export interface Annotation {
   highlightType?: string;
   /** CSS color for the highlight, e.g. '#ffff00' or 'rgba(255,220,0,0.35)'. */
   highlightColor?: string;
+  /** Author ID (if set). */
+  authorId?: string;
+  /** Project ID (if set). */
+  projectId?: string;
+}
+
+/** Author from the backend (GET /authors). Used for note attribution. */
+export interface Author {
+  id: string;
+  displayName: string;
+  email?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Note from the backend (GET /notes). Can link to annotation, full page, project, or parent note. */
+export interface Note {
+  id: string;
+  content: string;
+  annotationId?: string;
+  fullPageId?: string;
+  parentNoteId?: string;
+  projectId?: string;
+  authorId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /** Snapshot of a full page stored for anchoring/debugging. */

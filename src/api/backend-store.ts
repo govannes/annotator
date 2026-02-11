@@ -5,7 +5,7 @@
 
 import { Anchorer, type BackendAnnotationResponse } from '../core';
 import type { Annotation } from '../types';
-import type { AnnotationStore, SaveOptions } from './storage';
+import type { AnnotationStore, LoadOptions, SaveOptions } from './storage';
 
 const DEFAULT_BASE_URL = 'http://localhost:3000';
 
@@ -36,12 +36,19 @@ export function createBackendStore(config: BackendStoreConfig): AnnotationStore 
   const baseUrl = (config.baseUrl || DEFAULT_BASE_URL).replace(/\/$/, '');
 
   return {
-    async load(): Promise<Annotation[]> {
-      const res = await fetch(`${baseUrl}/annotations`);
+    async load(options?: LoadOptions): Promise<Annotation[]> {
+      const params = new URLSearchParams();
+      if (options?.pageUrl) params.set('pageUrl', options.pageUrl);
+      if (options?.baseUrl) params.set('baseUrl', options.baseUrl);
+      const qs = params.toString();
+      const url = qs ? `${baseUrl}/annotations?${qs}` : `${baseUrl}/annotations`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`Annotations API load failed: ${res.status} ${res.statusText}`);
       const data = (await res.json()) as BackendAnnotationResponse[];
       if (!Array.isArray(data)) return [];
-      return data.map((api) => Anchorer.fromBackendPayload(api));
+      let list = data.map((api) => Anchorer.fromBackendPayload(api));
+      if (options?.projectId) list = list.filter((a) => a.projectId === options.projectId);
+      return list;
     },
 
     async save(annotation: Annotation, options?: SaveOptions): Promise<Annotation> {

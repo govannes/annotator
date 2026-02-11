@@ -1,11 +1,16 @@
 /**
- * UI entry: mount floating trigger + sidebar shell.
- * Sidebar position and width from sidebar-prefs; Cmd/Ctrl+Shift+H toggles sidebar.
+ * UI entry: sidebar is current-page only (Annotations, Notes, Settings).
+ * "Go to portal" for full dashboard; Settings for highlight color, position, width.
  */
 
-import type { AnnotationStore } from '../api';
-import { createSidebarShell, SIDEBAR_POSITION_CHANGED_EVENT } from './sidebar-shell';
+import type { AnnotationStore, NotesApi } from '../api';
+import type { Note } from '../types';
+import { createSidebarShell, SIDEBAR_POSITION_CHANGED_EVENT, type SidebarShellApi } from './sidebar-shell';
 import { createTrigger } from './trigger';
+import { renderAnnotationsTab } from './annotations-tab';
+import { renderNotesTab } from './notes-tab';
+import { renderSettingsTab } from './settings-tab';
+import type { SidebarContext } from './sidebar-shell';
 
 export { SIDEBAR_POSITION_CHANGED_EVENT };
 
@@ -31,6 +36,10 @@ function registerSidebarShortcut(): void {
 export interface MountAnnotatorUIOptions {
   getStore: () => Promise<AnnotationStore>;
   getPageUrl: () => string;
+  /** Notes API for the Notes tab (required for Notes tab to load data). */
+  getNotesApi: () => Promise<NotesApi>;
+  /** Portal URL for "Go to portal" (full dashboard). Sync or async; empty = hidden. */
+  getPortalUrl?: () => string | Promise<string>;
   /** Optional: element to mount into (default: document.body). */
   root?: Element;
 }
@@ -43,7 +52,7 @@ export interface AnnotatorUIHandle {
 }
 
 export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIHandle {
-  const { getStore: _getStore, getPageUrl: _getPageUrl, root = document.body } = options;
+  const { getStore: _getStore, getPageUrl: _getPageUrl, getNotesApi: _getNotesApi, getPortalUrl: _getPortalUrl, root = document.body } = options;
 
   const existing = document.getElementById(CONTAINER_ID) as (HTMLElement & { __annotatorUIHandle?: AnnotatorUIHandle }) | null;
   if (existing?.__annotatorUIHandle) return existing.__annotatorUIHandle;
@@ -68,10 +77,71 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
 
   const sidebar = createSidebarShell({
     onClose: () => setOpen(false),
+    getPageUrl: _getPageUrl,
+    getPortalUrl: _getPortalUrl,
   });
   sidebar.style.display = 'none';
   sidebar.style.pointerEvents = 'auto';
   container.appendChild(sidebar);
+
+  function goToSource(annotationId: string): void {
+    const first = document.querySelector(`[data-annotation-id="${annotationId}"]`);
+    if (first) {
+      first.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const all = document.querySelectorAll(`[data-annotation-id="${annotationId}"]`);
+      const pulse = 'annotator-highlight-pulse';
+      all.forEach((el) => el.classList.add(pulse));
+      setTimeout(() => all.forEach((el) => el.classList.remove(pulse)), 1500);
+    }
+  }
+
+  function goToSourceFromNote(note: Note): void {
+    if (note.annotationId) {
+      goToSource(note.annotationId);
+    }
+    // If only fullPageId: would need GET /full-page/:id for URL; leave for later
+  }
+
+  const api = sidebar as unknown as SidebarShellApi;
+  api.__renderContent = (payload: { tabId: string; context: SidebarContext }) => {
+    const main = api.__getMainContent?.();
+    if (!main) return;
+    if (payload.tabId === 'annotations') {
+      renderAnnotationsTab(main, payload.context, {
+        getStore: _getStore,
+        getPageUrl: _getPageUrl,
+        onGoToSource: goToSource,
+      });
+    } else if (payload.tabId === 'notes') {
+      renderNotesTab(main, payload.context, {
+        getStore: _getStore,
+        getPageUrl: _getPageUrl,
+        getNotesApi: _getNotesApi,
+        onGoToSource: goToSourceFromNote,
+        onRefresh: () => api.__refresh?.(),
+      });
+    } else if (payload.tabId === 'settings') {
+      main.innerHTML = '';
+      main.style.padding = '16px';
+      main.style.color = '#6b7280';
+      main.textContent = 'Loading…';
+      Promise.resolve(_getPortalUrl?.()).then((url) => {
+        renderSettingsTab(main, {
+          portalUrl: url ?? '',
+          onSidebarPrefsChanged: () => {
+            window.dispatchEvent(new Event(SIDEBAR_POSITION_CHANGED_EVENT));
+          },
+        });
+      });
+    } else {
+      main.innerHTML = '';
+      main.style.padding = '16px';
+      main.style.color = '#6b7280';
+      main.style.fontSize = '14px';
+      main.textContent = 'Coming soon';
+    }
+  };
+  api.__refresh?.();
 
   let open = false;
   function setOpen(value: boolean): void {
@@ -82,6 +152,19 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
   const trigger = createTrigger(() => setOpen(!open));
   trigger.style.pointerEvents = 'auto';
   container.appendChild(trigger);
+
+  const pulseStyle = document.createElement('style');
+  pulseStyle.textContent = `
+    @keyframes annotator-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+      50% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.2); }
+    }
+    .annotator-highlight-pulse { animation: annotator-pulse 0.4s ease-out 2; }
+  `;
+  if (!document.getElementById('annotator-pulse-style')) {
+    pulseStyle.id = 'annotator-pulse-style';
+    document.head.appendChild(pulseStyle);
+  }
 
   root.appendChild(container);
 

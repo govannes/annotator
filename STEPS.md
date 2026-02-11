@@ -4,6 +4,105 @@ Track progress and move between steps here. **Before starting any step**, read [
 
 ---
 
+## What was done
+
+- **Step 1: Sidebar shell and layout** — Done.
+  - **sidebar-prefs.ts:** Position (left/right) and width (px) with presets S/M/L (320 / 420 / 560), min/max 280–600, persisted in localStorage.
+  - **sidebar-shell.ts:** New shell with placeholder top bar (Highlighter, Left/Right, S/M/L, close), placeholder context selector (“This Page” dropdown), tab strip (Annotations, Notes, Projects, Authors, Chat), main content area (placeholder tab labels). Resize handle on inner edge; width persisted.
+  - **index.ts:** Uses `createSidebarShell` instead of old sidebar; Cmd/Ctrl+Shift+H toggles sidebar (listener looks up current handle from DOM). (Annotation loading added in Step 4.)
+  - **Trigger** still repositions on `SIDEBAR_POSITION_CHANGED_EVENT` (reinject in extension-content).
+- **Sidebar always on the side (no “append to bottom”):**
+  - **index.ts:** UI container is now a **fixed viewport overlay** (`position: fixed; inset: 0; z-index: 2147483647`) so the sidebar and trigger stay on the side regardless of page layout (flex/grid, etc.). If a page uses `transform`/`filter` on an ancestor, fixed positioning can still be wrong; use Chrome Side Panel in that case.
+- **Chrome Side Panel (optional):**
+  - **extension/manifest.json:** `sidePanel` permission and `side_panel.default_path: "sidepanel.html"`.
+  - **extension/sidepanel.html:** Static panel in the browser chrome (copy to dist-extension on build). Does not yet load annotations; see [SIDEPANEL.md](./SIDEPANEL.md) for wiring via messaging.
+  - **SIDEPANEL.md** and **EXTENSION.md** updated with instructions.
+- **Step 2: Top bar** — Done.
+  - **sidebar-shell.ts:** Top bar: left (page favicon, page title with ellipsis, domain subtle); center (global search input, stub for in-memory filter); right (Settings icon placeholder, collapse/close). Calm styling; position/width controls moved to Settings (Step 10). `getPageUrl` optional for page info.
+  - **ui/index.ts:** Passes `getPageUrl` into `createSidebarShell`.
+- **Step 3: Context selector** — Done.
+  - **sidebar-prefs.ts:** `SidebarContext` type and get/set (`this-page` | `this-project` | `all-notes` | `all-projects`), persisted in localStorage; optional `getSidebarContextProjectId` / `setSidebarContextProjectId` for "This Project" (stub until Step 7).
+  - **sidebar-shell.ts:** Context selector dropdown wired to prefs; on change dispatches `SIDEBAR_CONTEXT_CHANGED_EVENT` and calls `refreshContent()`. Shell passes `{ tabId, context }` to optional `__renderContent` or shows placeholder "Tab — context: Label". Exposes `SidebarShellApi`: `__getContext`, `__getMainContent`, `__getActiveTab`, `__refresh`, `__renderContent`.
+  - **ui/index.ts:** Exports `SIDEBAR_CONTEXT_CHANGED_EVENT`.
+- **Step 4: Tabs + Annotations tab (backend data)** — Done.
+  - **api/storage.ts:** `LoadOptions` (`pageUrl`, `baseUrl`, `projectId`); `load(options?)` for filtered fetch. **api/backend-store.ts:** GET /annotations with query params; client-side filter by `projectId` when set.
+  - **types.ts:** `Annotation` has optional `authorId`, `projectId`. **core/anchorer.ts:** `BackendAnnotationResponse` and `fromBackendPayload` include them.
+  - **ui/annotation-card.ts:** New card: color strip, snippet, author · time · project, optional comment, “Notes (0)” stub, **“Go to source”** button with `onGoToSource(annotationId)`.
+  - **ui/annotations-tab.ts:** `renderAnnotationsTab(container, context, deps)` — builds `LoadOptions` from context, loads via `getStore().load(options)`, renders cards or empty state (“No highlights on this page” → “Select text to highlight”), or error.
+  - **ui/index.ts:** `__renderContent` wires Annotations tab to `renderAnnotationsTab`; other tabs show “Coming soon”. `goToSource(id)` finds `[data-annotation-id]`, scrolls into view, adds pulse animation (injected style). Calls `__refresh()` after mount so Annotations load on open.
+  - **Remaining (optional/follow-up):** Page → sidebar sync (hover/click highlight → switch to Annotations tab, scroll to card, highlight card); “Notes (n)” with real count and expand; author/project display names (GET /authors, GET /projects).
+- **Step 5: Notes tab** — Done.
+  - **api/notes.ts:** `createNotesApi(baseUrl)`, `listNotes(options?)` → GET /notes with `annotationId`, `fullPageId`, `projectId`, `authorId`, `parentNoteId`. **types.ts:** `Note` type (id, content, annotationId?, fullPageId?, parentNoteId?, projectId?, authorId, createdAt, updatedAt).
+  - **ui/note-card.ts:** Note card: title/first line, body, 🔗 Annotation / 🌐 Page / 📁 Project, author · time, “Replies (0)” stub, **“Go to source”** (enabled when annotationId or fullPageId; navigates to annotation on page via existing scroll+pulse).
+  - **ui/notes-tab.ts:** `renderNotesTab(container, context, deps)` — builds list options from context (This Page → annotations for page then filter notes by those annotationIds; This Project → projectId; All Notes/All Projects → no filter), loads via getNotesApi().listNotes(), renders cards or empty state (“No notes yet” → “Create your first idea”).
+  - **ui/index.ts:** Notes tab wired in __renderContent; `goToSourceFromNote(note)` for note cards (annotationId → scroll to highlight). Mount options include `getNotesApi`.
+  - **extension-content.ts:** Passes `getNotesApi` (createNotesApi from getApiBaseUrl).
+
+**Next step to implement:** Step 6 (Threaded notes).
+
+---
+
+## Plan for next steps
+
+| Order | Step | Status |
+|-------|------|--------|
+| 1 | Step 1: Sidebar shell and layout | Done |
+| 2 | Step 2: Top bar (favicon, title, domain, search, settings, collapse) | Done |
+| 3 | Step 3: Context selector (wire to shell/tabs) | Done |
+| 4 | Step 4: Tabs + Annotations tab (new cards, “Go to source”, page↔sidebar sync) | Done |
+| 5 | Step 5: Notes tab + note cards | Done |
+| 6 | Step 6: Threaded notes | Next |
+| 7 | Step 7: Projects tab | Pending |
+| 8 | Step 8: Authors tab | Pending |
+| 9 | Step 9: Highlight creation flow (floating mini-toolbar) | Pending |
+| 10 | Step 10: Settings page | Pending |
+| 11 | Step 11: Empty states and visual polish | Pending |
+
+**Optional later:** Wire Chrome Side Panel to annotations via content-script messaging; add search; implement Chat tab when ready.
+
+---
+
+## Instructions for Step 5 (Notes tab)
+
+**Goal:** Notes tab with note cards loaded from the backend. Each card has a **“Go to source”** button (linked annotation or page URL). Context filter applies (This Page vs All Notes).
+
+**Before starting:** Read [BACKEND.md](./BACKEND.md) — **Notes** (list with `?annotationId=`, `?fullPageId=`, `?projectId=`, `?authorId=`, `?parentNoteId=`; note shape: `id`, `content`, `annotationId`, `fullPageId`, `parentNoteId`, `projectId`, `authorId`, `createdAt`, `updatedAt`).
+
+**Implementation checklist:**
+
+1. **Notes API client**
+   - Add a small notes API module (e.g. `src/api/notes.ts` or extend backend-store) that:
+     - `listNotes(options?: { annotationId?, fullPageId?, projectId?, authorId?, parentNoteId? })` → `GET /notes` with query params → returns note array.
+   - Or call `fetch(\`${baseUrl}/notes?…\`)` from the Notes tab renderer; keep base URL from existing store/config.
+
+2. **Note type**
+   - Define a `Note` type matching the backend shape (id, content, annotationId?, fullPageId?, parentNoteId?, projectId?, authorId?, createdAt, updatedAt). Add to `src/types.ts` or next to the notes API.
+
+3. **Notes tab renderer**
+   - Create `src/ui/notes-tab.ts` (mirror of `annotations-tab.ts`):
+     - `renderNotesTab(container, context, deps)` where deps include `getStore`, `getPageUrl`, `getNotesApi` (or baseUrl), and `onGoToSource(note)`.
+     - Build list options from context: “This Page” → e.g. `fullPageId` or filter by current page URL (if backend supports `?fullPageId=` or you resolve page→fullPageId); “All Notes” → no filter.
+     - Load notes, then render **note cards** (see below). Empty state: “No notes yet” → “Create your first idea”.
+
+4. **Note card component**
+   - Create `src/ui/note-card.ts` (or add to a cards file). Per UI.md:
+     - Title or first line of note (from `content`).
+     - Body (rest of content; optional markdown later).
+     - Icons: 🔗 Annotation / 🌐 Page / 📁 Project (show which of `annotationId`, `fullPageId`, `projectId` are set).
+     - Author · time (author stub or GET /authors/:id later; time like “Yesterday” or “2h ago”).
+     - “Replies (n)” (count of notes with `parentNoteId === note.id`; stub 0 or real from list with `?parentNoteId=`).
+     - **“Go to source”** button: if `annotationId` set → same as annotation “Go to source” (scroll to highlight on page; may need to open the note’s page first if different URL). If only `fullPageId`/page URL → navigate to that URL (same tab or new tab from settings later).
+
+5. **Wire Notes tab in shell**
+   - In `src/ui/index.ts`, inside `__renderContent`, when `payload.tabId === 'notes'` call `renderNotesTab(main, payload.context, { … })` with the same getStore/getPageUrl and a note-specific `onGoToSource` that can scroll to an annotation by id or navigate to a URL.
+
+6. **Context**
+   - “This Page” for notes: filter notes that are linked to the current page (e.g. by `annotationId` for annotations on this page, or by `fullPageId` if you have it for the current page). “All Notes”: no filter. “This Project” / “All Projects”: filter by `projectId` when applicable.
+
+**When done:** Implement **Step 6: Threaded notes** (replies, inline expansion, thread view).
+
+---
+
 ## Cross-cutting requirements (apply where relevant)
 
 - **Go to source (every card):** Each card must have a **“Go to source”** button that takes the user to the source:
@@ -16,7 +115,7 @@ Track progress and move between steps here. **Before starting any step**, read [
 
 ---
 
-## Step 1: Sidebar shell and layout
+## Step 1: Sidebar shell and layout — DONE
 
 **Goal:** One sidebar container with correct layout and behavior: position (L/R), width presets (S/M/L), resizable, and Cmd/Ctrl+Shift+H toggle. Placeholder top bar, context selector, and tab strip; one main content area.
 

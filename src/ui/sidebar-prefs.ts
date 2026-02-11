@@ -53,3 +53,68 @@ export function getSidebarWidthMin(): number {
 export function getSidebarWidthMax(): number {
   return MAX_WIDTH;
 }
+
+// ----- Context selector (Step 3) -----
+
+const CONTEXT_KEY = 'annotator-sidebar-context';
+const CONTEXT_PROJECT_ID_KEY = 'annotator-sidebar-context-project-id';
+
+export type SidebarContext = 'this-page' | 'this-project' | 'all-notes' | 'all-projects';
+
+const DEFAULT_CONTEXT: SidebarContext = 'this-page';
+
+export function getSidebarContext(): SidebarContext {
+  if (typeof localStorage === 'undefined') return DEFAULT_CONTEXT;
+  const raw = localStorage.getItem(CONTEXT_KEY);
+  if (
+    raw === 'this-page' ||
+    raw === 'this-project' ||
+    raw === 'all-notes' ||
+    raw === 'all-projects'
+  )
+    return raw;
+  return DEFAULT_CONTEXT;
+}
+
+export function setSidebarContext(context: SidebarContext): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(CONTEXT_KEY, context);
+}
+
+/** Selected project ID when context is "this-project". Stub until Projects tab exists. */
+export function getSidebarContextProjectId(): string | null {
+  if (typeof localStorage === 'undefined') return null;
+  return localStorage.getItem(CONTEXT_PROJECT_ID_KEY);
+}
+
+export function setSidebarContextProjectId(projectId: string | null): void {
+  if (typeof localStorage === 'undefined') return;
+  if (projectId === null) localStorage.removeItem(CONTEXT_PROJECT_ID_KEY);
+  else localStorage.setItem(CONTEXT_PROJECT_ID_KEY, projectId);
+}
+
+// ----- Highlight / appearance (Settings tab) -----
+
+const HIGHLIGHT_COLOR_KEY = 'annotator-highlight-color';
+
+const DEFAULT_HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
+
+export function getHighlightColor(): string {
+  if (typeof localStorage === 'undefined') return DEFAULT_HIGHLIGHT_COLOR;
+  const raw = localStorage.getItem(HIGHLIGHT_COLOR_KEY);
+  return raw ?? DEFAULT_HIGHLIGHT_COLOR;
+}
+
+export function setHighlightColor(color: string): void {
+  if (typeof localStorage === 'undefined') return;
+  localStorage.setItem(HIGHLIGHT_COLOR_KEY, color);
+}
+
+/** Preset highlight colors for the Settings tab. */
+export const HIGHLIGHT_COLOR_PRESETS: { value: string; label: string }[] = [
+  { value: 'rgba(255, 220, 0, 0.35)', label: 'Yellow' },
+  { value: 'rgba(173, 216, 230, 0.6)', label: 'Light blue' },
+  { value: 'rgba(144, 238, 144, 0.5)', label: 'Light green' },
+  { value: 'rgba(255, 182, 193, 0.5)', label: 'Pink' },
+  { value: 'rgba(221, 160, 221, 0.5)', label: 'Plum' },
+];

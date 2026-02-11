@@ -1,24 +1,45 @@
 /**
- * Single annotation card for the sidebar list (white card style).
- * Quote + body + date; we may extend with author/replies later.
+ * Annotation card for the sidebar (Step 4).
+ * Design: color strip, snippet, author · time · project, optional comment, "Notes (n)", "Go to source".
  */
 
 import type { Annotation } from '../types';
 
-function formatDate(iso: string | undefined): string {
+function formatTimeAgo(iso: string | undefined): string {
   if (!iso) return '';
   try {
     const d = new Date(iso);
-    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    const now = Date.now();
+    const ms = now - d.getTime();
+    if (ms < 60_000) return 'Just now';
+    if (ms < 3600_000) return `${Math.floor(ms / 60_000)}m ago`;
+    if (ms < 86400_000) return `${Math.floor(ms / 3600_000)}h ago`;
+    if (ms < 604800_000) return `${Math.floor(ms / 86400_000)}d ago`;
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   } catch {
-    return iso;
+    return iso ?? '';
   }
 }
 
-export function renderAnnotationCard(ann: Annotation): HTMLElement {
-  const quote = ann.target?.selector?.textQuote?.exact ?? '';
-  const body = ann.body?.value ?? '';
-  const created = formatDate(ann.created);
+export interface AnnotationCardOptions {
+  /** Notes count for this annotation (stub 0 until notes API wired). */
+  notesCount?: number;
+  /** Callback when "Go to source" is clicked. */
+  onGoToSource?: (annotationId: string) => void;
+}
+
+export function renderAnnotationCard(
+  ann: Annotation,
+  options: AnnotationCardOptions = {}
+): HTMLElement {
+  const { notesCount = 0, onGoToSource } = options;
+  const snippet = ann.target?.selector?.textQuote?.exact ?? '';
+  const comment = ann.body?.value ?? '';
+  const color = ann.highlightColor ?? 'rgba(255, 220, 0, 0.35)';
+  const timeAgo = formatTimeAgo(ann.created);
+  const authorLabel = ann.authorId ? 'Author' : ''; // TODO: resolve author name via GET /authors/:id
+  const projectLabel = ann.projectId ? 'Project' : ''; // TODO: resolve project name via GET /projects/:id
+  const metaParts = [authorLabel, timeAgo, projectLabel].filter(Boolean);
 
   const card = document.createElement('article');
   card.className = 'annotator-annotation-card';
@@ -26,49 +47,78 @@ export function renderAnnotationCard(ann: Annotation): HTMLElement {
   card.style.cssText = `
     background: #fff;
     border-radius: 8px;
-    padding: 12px 14px;
+    padding: 0;
     margin-bottom: 10px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    border: 1px solid #e8e8e8;
     font-family: system-ui, -apple-system, sans-serif;
     font-size: 13px;
     line-height: 1.45;
+    overflow: hidden;
   `;
 
-  const header = document.createElement('div');
-  header.style.cssText = 'display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px;';
-  header.innerHTML = `
-    <span style="font-weight: 600; color: #111;">Note</span>
-    <span style="color: #6b7280; font-size: 12px;">${created}</span>
-  `;
-  card.appendChild(header);
+  const colorStrip = document.createElement('div');
+  colorStrip.style.cssText = `height: 4px; background: ${color};`;
+  card.appendChild(colorStrip);
 
-  if (quote.trim()) {
-    const quoteBlock = document.createElement('div');
-    quoteBlock.style.cssText = `
-      border-left: 3px solid #3b82f6;
-      padding-left: 10px;
+  const body = document.createElement('div');
+  body.style.cssText = 'padding: 12px 14px;';
+
+  if (snippet.trim()) {
+    const quoteEl = document.createElement('div');
+    quoteEl.style.cssText = `
+      color: #374151;
       margin-bottom: 8px;
-      color: #4b5563;
       font-style: italic;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     `;
-    quoteBlock.textContent = quote;
-    card.appendChild(quoteBlock);
+    quoteEl.textContent = `"${snippet.trim()}"`;
+    body.appendChild(quoteEl);
   }
 
-  if (body.trim()) {
-    const bodyEl = document.createElement('div');
-    bodyEl.style.cssText = 'color: #111; white-space: pre-wrap; word-break: break-word;';
-    bodyEl.textContent = body;
-    card.appendChild(bodyEl);
+  const meta = document.createElement('div');
+  meta.style.cssText = 'color: #6b7280; font-size: 12px; margin-bottom: 8px;';
+  meta.textContent = metaParts.join(' · ');
+  body.appendChild(meta);
+
+  if (comment.trim()) {
+    const commentEl = document.createElement('div');
+    commentEl.style.cssText = 'color: #111; white-space: pre-wrap; word-break: break-word; margin-bottom: 8px;';
+    commentEl.textContent = comment;
+    body.appendChild(commentEl);
   }
 
-  if (!quote.trim() && !body.trim()) {
-    const empty = document.createElement('div');
-    empty.style.cssText = 'color: #9ca3af; font-style: italic;';
-    empty.textContent = 'No text';
-    card.appendChild(empty);
-  }
+  const footer = document.createElement('div');
+  footer.style.cssText = 'display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap;';
+
+  const left = document.createElement('span');
+  left.style.cssText = 'color: #6b7280; font-size: 12px;';
+  left.textContent = notesCount > 0 ? `Notes (${notesCount})` : 'Notes (0)';
+  footer.appendChild(left);
+
+  const goBtn = document.createElement('button');
+  goBtn.type = 'button';
+  goBtn.textContent = 'Go to source';
+  goBtn.setAttribute('aria-label', 'Scroll to highlight on page');
+  goBtn.style.cssText = `
+    padding: 4px 10px;
+    font-size: 12px;
+    color: #374151;
+    background: #f3f4f6;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+  `;
+  goBtn.addEventListener('click', () => {
+    onGoToSource?.(ann.id);
+  });
+  footer.appendChild(goBtn);
+
+  body.appendChild(footer);
+  card.appendChild(body);
 
   return card;
 }
