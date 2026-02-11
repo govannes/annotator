@@ -5,12 +5,13 @@
 
 import type { AnnotationStore, NotesApi } from '../api';
 import type { Note } from '../types';
-import { createSidebarShell, SIDEBAR_POSITION_CHANGED_EVENT, type SidebarShellApi } from './sidebar-shell';
-import { createTrigger } from './trigger';
 import { renderAnnotationsTab } from './annotations-tab';
 import { renderNotesTab } from './notes-tab';
 import { renderSettingsTab } from './settings-tab';
 import type { SidebarContext } from './sidebar-shell';
+import { createSidebarShell, SIDEBAR_POSITION_CHANGED_EVENT, type SidebarShellApi } from './sidebar-shell';
+import { getSidebarPosition, type SidebarPosition } from './sidebar-prefs';
+import { createTrigger, type TriggerApi } from './trigger';
 
 export { SIDEBAR_POSITION_CHANGED_EVENT };
 
@@ -75,8 +76,12 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
     z-index: 2147483647;
   `;
 
+  let side: SidebarPosition = getSidebarPosition();
+  const getSide = (): SidebarPosition => side;
+
   const sidebar = createSidebarShell({
     onClose: () => setOpen(false),
+    getSide,
     getPageUrl: _getPageUrl,
     getPortalUrl: _getPortalUrl,
   });
@@ -147,11 +152,24 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
   function setOpen(value: boolean): void {
     open = value;
     sidebar.style.display = value ? 'flex' : 'none';
+    trigger.style.display = value ? 'none' : 'flex';
+    if (value) api.__applyPosition?.();
   }
 
-  const trigger = createTrigger(() => setOpen(!open));
+
+  const trigger = createTrigger({
+    onOpen: () => setOpen(true),
+    onClose: () => setOpen(false),
+    getSide,
+  });
   trigger.style.pointerEvents = 'auto';
   container.appendChild(trigger);
+
+  window.addEventListener(SIDEBAR_POSITION_CHANGED_EVENT, () => {
+    side = getSidebarPosition();
+    (trigger as TriggerApi).__applyPosition?.();
+    api.__applyPosition?.();
+  });
 
   const pulseStyle = document.createElement('style');
   pulseStyle.textContent = `

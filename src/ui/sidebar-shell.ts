@@ -9,6 +9,7 @@ import {
   setSidebarWidth,
   getSidebarWidthMin,
   getSidebarWidthMax,
+  type SidebarPosition,
 } from './sidebar-prefs';
 
 export const SIDEBAR_POSITION_CHANGED_EVENT = 'annotator-sidebar-position-changed';
@@ -24,6 +25,8 @@ export interface SidebarShellApi {
   __getMainContent?: () => HTMLElement;
   __getActiveTab?: () => TabId;
   __refresh?: () => void;
+  /** Re-apply position (left/right) from prefs so sidebar matches trigger side. */
+  __applyPosition?: () => void;
 }
 
 const TAB_IDS = ['annotations', 'notes', 'settings'] as const;
@@ -40,6 +43,8 @@ const TAB_LABELS: Record<TabId, string> = {
 
 export interface SidebarShellOptions {
   onClose: () => void;
+  /** Current side (left/right). When changed in Settings, open/close use this. */
+  getSide?: () => SidebarPosition;
   /** Current page URL (for domain/title in top bar). If omitted, shows generic label. */
   getPageUrl?: () => string;
   /** Portal URL for "Go to portal" (full dashboard). Sync or async; empty = link hidden. */
@@ -47,29 +52,41 @@ export interface SidebarShellOptions {
 }
 
 export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
-  const { onClose, getPortalUrl } = options;
-  const position = getSidebarPosition();
-  const isLeft = position === 'left';
+  const { onClose, getPortalUrl, getSide } = options;
   let currentWidth = getSidebarWidth();
 
   const sidebar = document.createElement('div');
   sidebar.id = SIDEBAR_ID;
   sidebar.setAttribute('role', 'complementary');
   sidebar.setAttribute('aria-label', 'Highlighter');
+
+  function applyPosition(): void {
+    const position = getSide?.() ?? getSidebarPosition();
+    const isLeft = position === 'left';
+    sidebar.style.left = isLeft ? '0' : '';
+    sidebar.style.right = isLeft ? '' : '0';
+    sidebar.style.boxShadow = isLeft ? '4px 0 20px rgba(0,0,0,0.1)' : '-4px 0 20px rgba(0,0,0,0.1)';
+    if (resizeHandle) {
+      resizeHandle.style.left = isLeft ? '' : '-4px';
+      resizeHandle.style.right = isLeft ? '-4px' : '';
+    }
+  }
+
+  let resizeHandle: HTMLElement | null = null;
+
   sidebar.style.cssText = `
     position: fixed;
     top: 0;
-    ${isLeft ? 'left: 0' : 'right: 0'};
     width: ${currentWidth}px;
     max-width: 90vw;
     height: 100vh;
     background: #f3f4f6;
-    box-shadow: ${isLeft ? '4px' : '-4px'} 0 20px rgba(0,0,0,0.1);
     z-index: 2147483645;
     display: flex;
     flex-direction: column;
     font-family: system-ui, -apple-system, sans-serif;
   `;
+  applyPosition();
 
   function applyWidth(w: number): void {
     currentWidth = w;
@@ -259,23 +276,23 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
   setTab('annotations');
 
   // ----- Resize handle (inner edge) -----
-  const resizeHandle = document.createElement('div');
-  resizeHandle.setAttribute('aria-label', 'Resize sidebar');
-  resizeHandle.style.cssText = `
+  const resizeHandleEl = document.createElement('div');
+  resizeHandleEl.setAttribute('aria-label', 'Resize sidebar');
+  resizeHandleEl.style.cssText = `
     position: absolute;
     top: 0;
-    ${isLeft ? 'right: -4px' : 'left: -4px'};
     width: 8px;
     height: 100%;
     cursor: col-resize;
     z-index: 1;
   `;
-  resizeHandle.addEventListener('mousedown', (e) => {
+  resizeHandleEl.addEventListener('mousedown', (e) => {
     e.preventDefault();
+    const isLeftNow = (getSide?.() ?? getSidebarPosition()) === 'left';
     const minW = getSidebarWidthMin();
     const maxW = getSidebarWidthMax();
     function onMove(ev: MouseEvent): void {
-      const delta = isLeft ? ev.movementX : -ev.movementX;
+      const delta = isLeftNow ? ev.movementX : -ev.movementX;
       const next = Math.max(minW, Math.min(maxW, currentWidth + delta));
       applyWidth(next);
     }
@@ -290,8 +307,11 @@ export function createSidebarShell(options: SidebarShellOptions): HTMLElement {
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
   });
-  sidebar.style.position = 'relative';
-  sidebar.appendChild(resizeHandle);
+  resizeHandle = resizeHandleEl;
+  applyPosition();
+  sidebar.appendChild(resizeHandleEl);
+
+  (sidebar as unknown as SidebarShellApi).__applyPosition = applyPosition;
 
   return sidebar;
 }

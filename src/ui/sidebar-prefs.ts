@@ -5,6 +5,7 @@
 
 const POSITION_KEY = 'annotator-sidebar-position';
 const WIDTH_KEY = 'annotator-sidebar-width';
+const TRIGGER_Y_KEY = 'annotator-trigger-y';
 
 export type SidebarPosition = 'left' | 'right';
 
@@ -52,6 +53,29 @@ export function getSidebarWidthMin(): number {
 
 export function getSidebarWidthMax(): number {
   return MAX_WIDTH;
+}
+
+// ----- Trigger vertical position (bookmark tab) -----
+
+const TRIGGER_Y_MIN = 0;
+const TRIGGER_Y_MAX = 100;
+const TRIGGER_Y_DEFAULT = 50;
+
+/** Trigger Y position as percentage from top (0–100). Used for bookmark tab and drag handle. */
+export function getTriggerYPercent(): number {
+  if (typeof localStorage === 'undefined') return TRIGGER_Y_DEFAULT;
+  const raw = localStorage.getItem(TRIGGER_Y_KEY);
+  if (raw !== null) {
+    const n = parseFloat(raw);
+    if (!isNaN(n) && n >= TRIGGER_Y_MIN && n <= TRIGGER_Y_MAX) return n;
+  }
+  return TRIGGER_Y_DEFAULT;
+}
+
+export function setTriggerYPercent(percent: number): void {
+  if (typeof localStorage === 'undefined') return;
+  const clamped = Math.max(TRIGGER_Y_MIN, Math.min(TRIGGER_Y_MAX, percent));
+  localStorage.setItem(TRIGGER_Y_KEY, String(clamped));
 }
 
 // ----- Context selector (Step 3) -----

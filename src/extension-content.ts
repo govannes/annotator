@@ -6,7 +6,7 @@
 import { createBackendStore, createNotesApi, type AnnotationStore } from './api';
 import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
-import { mountAnnotatorUI, SIDEBAR_POSITION_CHANGED_EVENT } from './ui';
+import { mountAnnotatorUI } from './ui';
 
 const DEFAULT_API_URL = 'http://localhost:3000';
 
@@ -275,7 +275,6 @@ function run(): void {
     });
   }
   injectAnnotatorUI();
-  window.addEventListener(SIDEBAR_POSITION_CHANGED_EVENT, () => injectAnnotatorUI());
   reattachLog('initial retry scheduled in', RETRY_DELAY_MS, 'ms');
   setTimeout(() => runReattach('initial retry'), RETRY_DELAY_MS);
   watchForDynamicContent();
