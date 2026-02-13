@@ -45,8 +45,6 @@ export {
 export {
   Anchorer,
   TEXT_QUOTE_CONTEXT_LENGTH,
-  type BackendAnnotationPayload,
-  type BackendAnnotationResponse,
   type AnchorContext,
   type BuildSelectorsOptions,
 } from './anchorer';

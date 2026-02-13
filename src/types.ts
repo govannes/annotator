@@ -1,6 +1,6 @@
 /**
- * Annotation data shapes (START.md §2).
- * Frontend creates/updates selector; backend only stores/returns these.
+ * Annotation data shapes.
+ * Frontend creates/updates selector; storage only stores/returns these.
  */
 
 export interface RangeSelector {
@@ -35,8 +35,6 @@ export interface Annotation {
   target: AnnotationTarget;
   /** Page URL where the annotation was created (always stored). */
   pageUrl?: string;
-  /** Link to full_page table (snapshot of page HTML when annotation was created). */
-  fullPageId?: string;
   /** Base URL (origin) of the page, for filtering. */
   baseUrl?: string;
   body?: { type: string; value: string };
@@ -45,44 +43,6 @@ export interface Annotation {
   highlightType?: string;
   /** CSS color for the highlight, e.g. '#ffff00' or 'rgba(255,220,0,0.35)'. */
   highlightColor?: string;
-  /** Author ID (if set). */
-  authorId?: string;
-  /** Project ID (if set). */
-  projectId?: string;
-
-  noteCount?: number;
-}
-
-/** Author from the backend (GET /authors). Used for note attribution. */
-export interface Author {
-  id: string;
-  displayName: string;
-  email?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-/** Note from the backend (GET /notes). Can link to annotation, full page, project, or parent note. */
-export interface Note {
-  id: string;
-  content: string;
-  annotationId?: string;
-  fullPageId?: string;
-  parentNoteId?: string;
-  projectId?: string;
-  authorId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/** Snapshot of a full page stored for anchoring/debugging. */
-export interface FullPage {
-  id: string;
-  html: string;
-  baseUrl: string;
-  fullPath: string;
-  created: string;
-  updated: string;
 }
 
 /**

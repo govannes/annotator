@@ -1,11 +1,10 @@
 /**
  * Anchorer: Hypothesis-style anchoring in one place.
  *
- * 1. Build selectors from a DOM Range (for saving) and produce backend payload.
- * 2. Turn backend response into an Annotation.
- * 3. Re-attach annotations to the DOM using four strategies (fuzzy anchoring).
+ * 1. Build selectors from a DOM Range (for saving).
+ * 2. Re-attach annotations to the DOM using four strategies (fuzzy anchoring).
  *
- * Selectors (saved and sent to BE):
+ * Selectors:
  * - RangeSelector: XPath start/end + character offsets in those elements.
  * - TextPositionSelector: start/end character offsets in the whole-document text.
  * - TextQuoteSelector: exact selected text + prefix (e.g. 32 chars) + suffix (e.g. 32 chars).
@@ -45,42 +44,6 @@ import type {
 
 /** Length of prefix/suffix context for TextQuoteSelector (Hypothesis uses 32). */
 export const TEXT_QUOTE_CONTEXT_LENGTH = 32;
-
-// ---------------------------------------------------------------------------
-// Backend payload types (what we send and receive)
-// ---------------------------------------------------------------------------
-
-/** Payload to send to the backend (e.g. POST /annotations). */
-export interface BackendAnnotationPayload {
-  id?: string;
-  source: string;
-  pageUrl: string;
-  selector: Annotation['target']['selector'];
-  bodyType?: string;
-  bodyValue?: string;
-  highlightType?: string;
-  highlightColor?: string;
-  baseUrl?: string;
-}
-
-/** Response from the backend (e.g. GET /annotations or POST /annotations). */
-export interface BackendAnnotationResponse {
-  id: string;
-  source: string;
-  pageUrl: string;
-  selector: Annotation['target']['selector'];
-  bodyType?: string;
-  bodyValue?: string;
-  created?: string;
-  highlightType?: string;
-  highlightColor?: string;
-  fullPageId?: string;
-  baseUrl?: string;
-  authorId?: string;
-  projectId?: string;
-  /** Number of notes linked to this annotation (when provided by the backend). */
-  noteCount?: number;
-}
 
 /** Context required to re-attach an annotation (document text + DOM↔offset mapper). */
 export interface AnchorContext {
@@ -130,52 +93,6 @@ export class Anchorer {
       textPosition: textPositionSel,
       textQuote: textQuoteSel,
     };
-  }
-
-  /**
-   * Convert an Annotation to the payload shape expected by the backend (e.g. POST body).
-   */
-  static toBackendPayload(annotation: Annotation): BackendAnnotationPayload {
-    return {
-      id: annotation.id,
-      source: annotation.target.source,
-      pageUrl: annotation.pageUrl ?? annotation.target.source,
-      selector: annotation.target.selector,
-      bodyType: annotation.body?.type,
-      bodyValue: annotation.body?.value,
-      highlightType: annotation.highlightType,
-      highlightColor: annotation.highlightColor,
-      baseUrl: annotation.baseUrl,
-    };
-  }
-
-  /**
-   * Convert a backend response into an Annotation (for use after load or save).
-   */
-  static fromBackendPayload(api: BackendAnnotationResponse): Annotation {
-    const target: AnnotationTarget = {
-      source: api.source,
-      selector: api.selector ?? {},
-    };
-    const ann: Annotation = {
-      id: api.id,
-      target,
-      pageUrl: api.pageUrl,
-      created: api.created,
-      highlightType: api.highlightType,
-      highlightColor: api.highlightColor,
-      fullPageId: api.fullPageId,
-      baseUrl: api.baseUrl,
-      authorId: api.authorId,
-      projectId: api.projectId,
-    };
-    if (api.bodyType != null || api.bodyValue != null) {
-      ann.body = { type: api.bodyType ?? '', value: api.bodyValue ?? '' };
-    }
-    if (api.noteCount != null) {
-      ann.noteCount = api.noteCount;
-    }
-    return ann;
   }
 
   /**

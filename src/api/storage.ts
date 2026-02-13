@@ -10,14 +10,12 @@ export interface SaveOptions {
   fullPage?: { html: string; baseUrl: string; fullPath: string };
 }
 
-/** Options to filter annotations when loading (query params or client-side filter). */
+/** Options to filter annotations when loading. */
 export interface LoadOptions {
   /** Filter by exact page URL. */
   pageUrl?: string;
   /** Filter by base URL (origin). */
   baseUrl?: string;
-  /** Filter by project ID (client-side if backend does not support). */
-  projectId?: string;
 }
 
 export interface AnnotationStore {
@@ -35,7 +33,6 @@ export function createMemoryStore(): AnnotationStore {
       let list = Array.from(store.values());
       if (options?.pageUrl) list = list.filter((a) => a.pageUrl === options.pageUrl || a.target?.source === options.pageUrl);
       if (options?.baseUrl) list = list.filter((a) => a.baseUrl === options.baseUrl);
-      if (options?.projectId) list = list.filter((a) => a.projectId === options.projectId);
       return list;
     },
     async save(annotation: Annotation, _options?: SaveOptions) {

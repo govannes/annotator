@@ -1,48 +1,34 @@
 /**
- * Browser extension content script: injects the annotator UI and runs the annotator on the page.
+ * Browser extension content script: injects a floating 3-button toolbar and
+ * runs the annotator on the page using localStorage for persistence.
+ *
+ * Buttons: Anchor (highlight selection), Show DB (view stored annotations), Delete (remove selected highlight).
  * Built separately and loaded via manifest.json as the content_script.
  */
 
-import { createBackendStore, createNotesApi, type AnnotationStore } from './api';
+import { createLocalStore, type AnnotationStore } from './api';
 import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
-import { mountAnnotatorUI } from './ui';
 
-const DEFAULT_API_URL = 'http://localhost:3000';
+// ---------------------------------------------------------------------------
+// Store (localStorage)
+// ---------------------------------------------------------------------------
 
-async function getApiBaseUrl(): Promise<string> {
-  if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-    const out = await chrome.storage.local.get('annotatorApiUrl');
-    if (out.annotatorApiUrl && typeof out.annotatorApiUrl === 'string') return out.annotatorApiUrl;
-  }
-  return DEFAULT_API_URL;
-}
-
-let backendStorePromise: Promise<AnnotationStore> | null = null;
+let storeInstance: AnnotationStore | null = null;
 function getStore(): Promise<AnnotationStore> {
-  if (!backendStorePromise) {
-    backendStorePromise = getApiBaseUrl().then((baseUrl) => createBackendStore({ baseUrl }));
-  }
-  return backendStorePromise;
+  if (!storeInstance) storeInstance = createLocalStore();
+  return Promise.resolve(storeInstance);
 }
 
-function getNotesApi() {
-  return getApiBaseUrl().then((baseUrl) => createNotesApi(baseUrl));
-}
-
-/** Portal URL for "Go to portal" (full dashboard). Default '' = link hidden. Can be set in chrome.storage.local.annotatorPortalUrl. */
-async function getPortalUrl(): Promise<string> {
-  if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-    const out = await chrome.storage.local.get('annotatorPortalUrl');
-    if (out.annotatorPortalUrl && typeof out.annotatorPortalUrl === 'string') return out.annotatorPortalUrl;
-  }
-  return '';
-}
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const PANEL_ID = 'annotator-extension-panel';
 const TOOLBAR_ID = 'annotator-extension-toolbar';
 const TOOLBAR_DRAG_HANDLE_ID = 'annotator-toolbar-drag-handle';
 const TOOLBAR_OFFSET_STORAGE_KEY = 'annotatorToolbarOffsetX';
+const DB_OVERLAY_ID = 'annotator-db-overlay';
 const RETRY_DELAY_MS = 2500;
 const REINJECT_DEBOUNCE_MS = 500;
 const DYNAMIC_REATTACH_DEBOUNCE_MS = 800;
@@ -54,19 +40,24 @@ function reattachLog(msg: string, ...args: unknown[]): void {
   }
 }
 
-/** Material Icons (24px outline style) as inline SVG. */
+// ---------------------------------------------------------------------------
+// Icons (Material 24px outline as inline SVG)
+// ---------------------------------------------------------------------------
+
 const ICONS = {
   moreHoriz:
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>',
-  palette:
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>',
-  noteAdd:
-    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 14H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>',
   highlight:
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 14l3 3v4h6v-4l3-3V9H6v5zm2-3h8v2.17l-2.59 2.58L12 16l-1.41-1.41L8 13.17V11zM2 2v2h2v14h14v2h2v-2h2V4h2V2H2z"/></svg>',
+  database:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="5.5" rx="8" ry="3.5"/><path d="M4 5.5v4c0 1.93 3.58 3.5 8 3.5s8-1.57 8-3.5v-4c0 1.93-3.58 3.5-8 3.5S4 7.43 4 5.5z"/><path d="M4 9.5v4c0 1.93 3.58 3.5 8 3.5s8-1.57 8-3.5v-4c0 1.93-3.58 3.5-8 3.5S4 11.43 4 9.5z"/><path d="M4 13.5v4c0 1.93 3.58 3.5 8 3.5s8-1.57 8-3.5v-4c0 1.93-3.58 3.5-8 3.5S4 15.43 4 13.5z"/></svg>',
   delete:
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
 };
+
+// ---------------------------------------------------------------------------
+// Inject floating toolbar
+// ---------------------------------------------------------------------------
 
 function injectPanel(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
@@ -109,9 +100,8 @@ function injectPanel(): boolean {
         padding-left: 4px;
         border-left: 1px solid #333;
       ">
-        <button type="button" id="annotator-btn-color" class="annotator-toolbar-btn" title="Pick highlight color">${ICONS.palette}</button>
         <button type="button" id="add-annotation" class="annotator-toolbar-btn annotator-toolbar-btn-highlight" title="Highlight selection">${ICONS.highlight}</button>
-        <button type="button" id="annotator-btn-note" class="annotator-toolbar-btn" title="Add note">${ICONS.noteAdd}</button>
+        <button type="button" id="annotator-btn-showdb" class="annotator-toolbar-btn" title="Show annotations DB">${ICONS.database}</button>
         <button type="button" id="annotator-btn-delete" class="annotator-toolbar-btn" title="Delete selected highlight">${ICONS.delete}</button>
       </div>
     </div>
@@ -136,83 +126,132 @@ function injectPanel(): boolean {
       .annotator-toolbar-btn-highlight:hover { background: #2d4a1a; color: #a5d6a7; }
     </style>
     <div id="add-annotation-result" style="position:fixed;left:-9999px;pointer-events:none;" aria-hidden="true"></div>
-    <div id="test-reattach-result" style="position:fixed;left:-9999px;pointer-events:none;" aria-hidden="true"></div>
-    <div id="annotator-status" style="position:fixed;bottom:60px;left:50%;transform:translateX(-50%);color:#999;font-size:12px;z-index:2147483646;pointer-events:none;"></div>
   `;
   document.body.appendChild(panel);
   setupToolbarDrag();
-  setupToolbarColorPicker();
+  setupShowDbButton();
   return true;
 }
 
-function setupToolbarColorPicker(): void {
-  const btn = document.getElementById('annotator-btn-color');
+// ---------------------------------------------------------------------------
+// Show DB overlay
+// ---------------------------------------------------------------------------
+
+function setupShowDbButton(): void {
+  const btn = document.getElementById('annotator-btn-showdb');
   if (!btn) return;
 
-  const STORAGE_KEY = 'annotatorHighlightColor';
-  const DEFAULT = 'rgba(255, 220, 0, 0.35)';
-
-  function loadStored(): string {
-    try {
-      const v = localStorage.getItem(STORAGE_KEY);
-      if (v) return v;
-    } catch (_) {}
-    return DEFAULT;
-  }
-
-  function saveColor(c: string): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, c);
-    } catch (_) {}
-    if (typeof window !== 'undefined') {
-      (window as unknown as { __annotatorHighlightColor?: string }).__annotatorHighlightColor = c;
+  btn.addEventListener('click', async () => {
+    // Toggle: if overlay exists, close it
+    const existing = document.getElementById(DB_OVERLAY_ID);
+    if (existing) {
+      existing.remove();
+      return;
     }
-  }
 
-  saveColor(loadStored());
+    const store = await getStore();
+    const all = await store.load();
+    const pageUrl = window.location.href;
+    const pageAnnotations = all.filter(
+      (a) => a.pageUrl === pageUrl || a.target?.source === pageUrl
+    );
 
-  btn.addEventListener('click', () => {
-    if (typeof (window as unknown as { EyeDropper?: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper !== 'undefined') {
-      const EyeDropper = (window as unknown as { EyeDropper: new () => { open: () => Promise<{ sRGBHex: string }> } }).EyeDropper;
-      const dropper = new EyeDropper();
-      dropper.open()
-        .then((result: { sRGBHex: string }) => {
-          const hex = result.sRGBHex;
-          const r = parseInt(hex.slice(1, 3), 16);
-          const g = parseInt(hex.slice(3, 5), 16);
-          const b = parseInt(hex.slice(5, 7), 16);
-          saveColor(`rgba(${r},${g},${b},0.35)`);
-        })
-        .catch(() => {
-          openFallbackColorPicker(saveColor);
-        });
+    const overlay = document.createElement('div');
+    overlay.id = DB_OVERLAY_ID;
+    overlay.style.cssText = `
+      position: fixed;
+      bottom: 70px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 2147483647;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      border: 1px solid #333;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 12px;
+      max-width: 600px;
+      width: 90vw;
+      max-height: 50vh;
+      overflow-y: auto;
+      padding: 16px;
+    `;
+
+    const header = document.createElement('div');
+    header.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #333;
+    `;
+    header.innerHTML = `
+      <span style="font-family: system-ui, sans-serif; font-size: 13px; font-weight: 600; color: #eee;">
+        Annotations DB (${pageAnnotations.length} on this page, ${all.length} total)
+      </span>
+      <button id="annotator-db-close" style="
+        background: none; border: none; color: #888; cursor: pointer;
+        font-size: 18px; line-height: 1; padding: 4px 8px; border-radius: 4px;
+      ">&times;</button>
+    `;
+    overlay.appendChild(header);
+
+    if (pageAnnotations.length === 0) {
+      const empty = document.createElement('div');
+      empty.style.cssText = 'text-align: center; padding: 20px; color: #666; font-family: system-ui, sans-serif;';
+      empty.textContent = 'No annotations for this page.';
+      overlay.appendChild(empty);
     } else {
-      openFallbackColorPicker(saveColor);
+      for (const ann of pageAnnotations) {
+        const card = document.createElement('div');
+        card.style.cssText = `
+          background: #2a2a2a;
+          border: 1px solid #3a3a3a;
+          border-radius: 8px;
+          padding: 10px 12px;
+          margin-bottom: 8px;
+        `;
+        const quote = ann.target?.selector?.textQuote?.exact ?? '(no quote)';
+        const truncated = quote.length > 80 ? quote.slice(0, 80) + '...' : quote;
+        const created = ann.created ? new Date(ann.created).toLocaleString() : 'unknown';
+        card.innerHTML = `
+          <div style="color: #e0e0e0; margin-bottom: 4px; font-family: system-ui, sans-serif; font-size: 13px;">"${escapeHtml(truncated)}"</div>
+          <div style="color: #888; font-size: 11px;">
+            <span>id: ${escapeHtml(ann.id.slice(0, 8))}...</span>
+            <span style="margin-left: 8px;">created: ${escapeHtml(created)}</span>
+            ${ann.highlightColor ? `<span style="margin-left: 8px; display: inline-block; width: 10px; height: 10px; border-radius: 2px; background: ${ann.highlightColor}; vertical-align: middle;"></span>` : ''}
+          </div>
+        `;
+        overlay.appendChild(card);
+      }
     }
+
+    document.body.appendChild(overlay);
+
+    // Close button
+    const closeBtn = document.getElementById('annotator-db-close');
+    closeBtn?.addEventListener('click', () => overlay.remove());
+
+    // Close on click outside
+    function onClickOutside(e: MouseEvent): void {
+      if (!overlay.contains(e.target as Node) && (e.target as Element)?.id !== 'annotator-btn-showdb') {
+        overlay.remove();
+        document.removeEventListener('click', onClickOutside, true);
+      }
+    }
+    setTimeout(() => document.addEventListener('click', onClickOutside, true), 0);
   });
 }
 
-function openFallbackColorPicker(saveColor: (c: string) => void): void {
-  const input = document.createElement('input');
-  input.type = 'color';
-  input.value = '#ffdc00';
-  input.style.position = 'fixed';
-  input.style.left = '-9999px';
-  input.style.top = '0';
-  document.body.appendChild(input);
-  input.click();
-  input.addEventListener('change', () => {
-    const hex = input.value;
-    const r = parseInt(hex.slice(1, 3), 16);
-    const g = parseInt(hex.slice(3, 5), 16);
-    const b = parseInt(hex.slice(5, 7), 16);
-    saveColor(`rgba(${r},${g},${b},0.35)`);
-    document.body.removeChild(input);
-  });
-  input.addEventListener('blur', () => {
-    if (input.parentNode) document.body.removeChild(input);
-  }, { once: true });
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
+
+// ---------------------------------------------------------------------------
+// Toolbar drag
+// ---------------------------------------------------------------------------
 
 function setupToolbarDrag(): void {
   const toolbar = document.getElementById(TOOLBAR_ID);
@@ -262,6 +301,10 @@ function setupToolbarDrag(): void {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Extension config
+// ---------------------------------------------------------------------------
+
 const extensionConfig = {
   get root() {
     return document.body;
@@ -269,6 +312,10 @@ const extensionConfig = {
   getPageUrl: () => window.location.href,
   getStore,
 };
+
+// ---------------------------------------------------------------------------
+// Re-inject if panel is removed (SPA navigation)
+// ---------------------------------------------------------------------------
 
 let reinjectTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -291,24 +338,14 @@ function watchForPanelRemoval(): void {
   });
 }
 
-/** Once true, we don't schedule reattach from mutations and we kill the observer (runs only once). */
-let annotatingComplete = false;
+// ---------------------------------------------------------------------------
+// Dynamic content reattach (for SPAs that load content after initial render)
+// ---------------------------------------------------------------------------
 
+let annotatingComplete = false;
 let dynamicReattachTimeout: ReturnType<typeof setTimeout> | null = null;
 let dynamicContentObserver: MutationObserver | null = null;
 let dynamicContentObserveTarget: Element | null = null;
-
-function describeNode(node: Node): string {
-  if (node.nodeType === Node.ELEMENT_NODE) {
-    const el = node as Element;
-    const tag = el.tagName?.toLowerCase() ?? '?';
-    const id = el.id ? `#${el.id}` : '';
-    const cls = el.className && typeof el.className === 'string' ? `.${el.className.split(/\s+/)[0]}` : '';
-    return `${tag}${id}${cls}`;
-  }
-  if (node.nodeType === Node.TEXT_NODE) return `#text(…${(node.textContent ?? '').slice(0, 20)})`;
-  return `node(${node.nodeType})`;
-}
 
 function scheduleDynamicReattach(reason: string): void {
   if (annotatingComplete) {
@@ -324,11 +361,6 @@ function scheduleDynamicReattach(reason: string): void {
   }, DYNAMIC_REATTACH_DEBOUNCE_MS);
 }
 
-/**
- * Run reattach with the dynamic-content observer disconnected so our own DOM
- * changes (clear + redraw highlights) don't trigger another reattach.
- * After the first run we set annotatingComplete and never reconnect the observer.
- */
 async function runReattach(trigger: string): Promise<void> {
   reattachLog('running reattach now (trigger:', trigger + ')');
   if (dynamicContentObserver && dynamicContentObserveTarget) {
@@ -345,7 +377,7 @@ async function runReattach(trigger: string): Promise<void> {
       dynamicReattachTimeout = null;
     }
     dynamicContentObserveTarget = null;
-    reattachLog('annotating complete — observer not reconnected (saves memory)');
+    reattachLog('annotating complete — observer not reconnected');
   }
 }
 
@@ -361,7 +393,7 @@ function watchForDynamicContent(): void {
   reattachLog('MutationObserver active on document.body');
 }
 
-/** True if node is or is inside our panel, UI (sidebar/trigger), or one of our highlight spans. */
+/** True if node is or is inside our panel or one of our highlight spans. */
 function isOurMutation(node: Node): boolean {
   if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) return false;
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
@@ -369,8 +401,8 @@ function isOurMutation(node: Node): boolean {
   return (
     el.id === PANEL_ID ||
     el.closest?.('#' + PANEL_ID) != null ||
-    el.id === UI_CONTAINER_ID ||
-    el.closest?.('#' + UI_CONTAINER_ID) != null ||
+    el.id === DB_OVERLAY_ID ||
+    el.closest?.('#' + DB_OVERLAY_ID) != null ||
     el.classList?.contains?.('annotator-highlight') ||
     el.closest?.('.annotator-highlight') != null
   );
@@ -387,39 +419,22 @@ function dynamicContentCallback(mutations: MutationRecord[]): void {
     reattachLog('skip reattach: all', mutations.length, 'mutation(s) are from our panel/highlights');
     return;
   }
-  const first = mutations[0];
-  const targetDesc = first ? describeNode(first.target) : '?';
-  const added = first?.addedNodes?.length ?? 0;
-  const removed = first?.removedNodes?.length ?? 0;
-  scheduleDynamicReattach(
-    `saw ${mutations.length} mutation(s) from page (e.g. target=${targetDesc}, +${added}/-${removed} nodes)`
-  );
+  scheduleDynamicReattach(`saw ${mutations.length} mutation(s) from page`);
 }
 
-const UI_CONTAINER_ID = 'annotator-ui-root';
+// ---------------------------------------------------------------------------
+// Run
+// ---------------------------------------------------------------------------
 
 function run(): void {
   const didInject = injectPanel();
   if (!didInject) return;
   annotatingComplete = false;
   init(extensionConfig);
-  function injectAnnotatorUI(): void {
-    const root = document.getElementById(UI_CONTAINER_ID);
-    if (root) root.remove();
-    mountAnnotatorUI({
-      getStore: extensionConfig.getStore,
-      getPageUrl: extensionConfig.getPageUrl,
-      getNotesApi,
-      getPortalUrl: () => getPortalUrl(),
-      root: document.body,
-    });
-  }
-  injectAnnotatorUI();
   reattachLog('initial retry scheduled in', RETRY_DELAY_MS, 'ms');
   setTimeout(() => runReattach('initial retry'), RETRY_DELAY_MS);
   watchForDynamicContent();
 }
 
 run();
-// On SPAs (e.g. ChatGPT), the app often replaces document.body; re-inject the panel when it disappears
 watchForPanelRemoval();

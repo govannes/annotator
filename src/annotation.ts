@@ -2,10 +2,10 @@
  * Fluent Annotation API: core + optional persistence.
  *
  * Pattern:
- *   Annotation.annotate(payload).saveFullPage(async).done()
+ *   Annotation.annotate(payload).done()
  *   Annotation.load(pageUrl).into(root)
  *
- * Configure once (e.g. in app or extension init):
+ * Configure once (e.g. in extension init):
  *   Annotation.configure({ getStore, getPageUrl })
  */
 
@@ -81,7 +81,7 @@ export function configure(config: {
 
 /**
  * Start building an annotation from a selection.
- * Chain: .saveFullPage(async?).done() to persist and draw.
+ * Chain: .done() to persist and draw.
  */
 export function annotate(payload: AnnotatePayload): AnnotationBuilder {
   return new AnnotationBuilder(payload);
@@ -131,7 +131,6 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
 
   // Page-level: one root, shared text/mapper; rebuild after each highlight so DOM stays in sync
   for (const ann of pageLevel) {
-    console.log('[Annotator] Page-level annotation:', ann);
     const highlighter = createAnnotationHighlighter(ann, root, {
       text: currentText,
       mapper: currentMapper,
@@ -148,8 +147,7 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
     }
   }
 
-  // Content-level: try block root first. If the block is too small (e.g. just a link),
-  // we may resolve to the wrong occurrence (e.g. "se" in serverless). Require suffix match and fall back to page root otherwise.
+  // Content-level: try block root first, fall back to page root
   for (const ann of contentLevel) {
     const blockRoot = contentUrlToRoot.get(ann.target.source);
     const suffix = ann.target.selector?.textQuote?.suffix?.trim();
@@ -186,9 +184,6 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
         });
         result = highlighter.resolveRange();
         highlightRoot = root;
-        if (result.ok) {
-          console.log('[Annotator] Content-level anchored with page root fallback (block too small or wrong match):', ann.id?.slice(0, 8));
-        }
       }
     } else {
       highlighter = createAnnotationHighlighter(ann, root, {
@@ -217,21 +212,10 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
 
 /** Fluent builder returned by annotate(payload). */
 export class AnnotationBuilder {
-  private saveFullPageEnabled = false;
-
   constructor(private readonly payload: AnnotatePayload) {}
 
   /**
-   * When saving, also store a full-page HTML snapshot (e.g. for re-anchoring).
-   * @param async - if true (default), capture is async; pass false for sync.
-   */
-  saveFullPage(async_ = true): this {
-    this.saveFullPageEnabled = async_;
-    return this;
-  }
-
-  /**
-   * Build the annotation, optionally save to store, and draw the highlight.
+   * Build the annotation, save to store, and draw the highlight.
    * Uses configured store if no store passed.
    */
   async done(store?: AnnotationStore): Promise<AnnotationType> {
@@ -257,30 +241,12 @@ export class AnnotationBuilder {
 
     const storeToUse = store ?? (configuredStore ? await configuredStore() : null);
     if (storeToUse) {
-      const saveOptions =
-        this.saveFullPageEnabled &&
-        typeof document !== 'undefined' &&
-        document.documentElement
-          ? {
-              fullPage: {
-                html: document.documentElement.outerHTML,
-                baseUrl: (() => {
-                  try {
-                    return new URL(pageUrl).origin;
-                  } catch {
-                    return pageUrl.split('#')[0]!.split('?')[0] ?? pageUrl;
-                  }
-                })(),
-                fullPath: pageUrl,
-              },
-            }
-          : undefined;
-      const saved = await storeToUse.save(annotation, saveOptions);
-      highlightRange(range, saved.id, {
-        type: saved.highlightType,
-        color: saved.highlightColor,
+      await storeToUse.save(annotation);
+      highlightRange(range, annotation.id, {
+        type: annotation.highlightType,
+        color: annotation.highlightColor,
       });
-      return saved;
+      return annotation;
     }
 
     highlightRange(range, annotation.id, {
@@ -290,12 +256,6 @@ export class AnnotationBuilder {
     return annotation;
   }
 }
-
-/**
- * Create a highlighter for one annotation (same as createAnnotationHighlighter from core).
- * Use for the standard pipeline: getTargetText() → resolveRange() → highlight() / highlightRange().
- */
-export { createAnnotationHighlighter } from './core';
 
 /** Public API namespace. */
 export const Annotation = {
