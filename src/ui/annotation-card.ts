@@ -22,8 +22,8 @@ function formatTimeAgo(iso: string | undefined): string {
 }
 
 export interface AnnotationCardOptions {
-  /** Notes count for this annotation (stub 0 until notes API wired). */
-  notesCount?: number;
+  /** Note count for this annotation (overrides ann.noteCount when provided). */
+  noteCount?: number;
   /** Callback when "Go to source" is clicked. */
   onGoToSource?: (annotationId: string) => void;
 }
@@ -32,7 +32,8 @@ export function renderAnnotationCard(
   ann: Annotation,
   options: AnnotationCardOptions = {}
 ): HTMLElement {
-  const { notesCount = 0, onGoToSource } = options;
+  const noteCount = options.noteCount ?? ann.noteCount ?? 0;
+  const { onGoToSource } = options;
   const snippet = ann.target?.selector?.textQuote?.exact ?? '';
   const comment = ann.body?.value ?? '';
   const color = ann.highlightColor ?? 'rgba(255, 220, 0, 0.35)';
@@ -96,7 +97,7 @@ export function renderAnnotationCard(
 
   const left = document.createElement('span');
   left.style.cssText = 'color: #6b7280; font-size: 12px;';
-  left.textContent = notesCount > 0 ? `Notes (${notesCount})` : 'Notes (0)';
+  left.textContent = noteCount > 0 ? `Notes (${noteCount})` : 'Notes (0)';
   footer.appendChild(left);
 
   const goBtn = document.createElement('button');

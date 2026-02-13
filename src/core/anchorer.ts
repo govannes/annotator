@@ -78,6 +78,8 @@ export interface BackendAnnotationResponse {
   baseUrl?: string;
   authorId?: string;
   projectId?: string;
+  /** Number of notes linked to this annotation (when provided by the backend). */
+  noteCount?: number;
 }
 
 /** Context required to re-attach an annotation (document text + DOM↔offset mapper). */
@@ -169,6 +171,9 @@ export class Anchorer {
     };
     if (api.bodyType != null || api.bodyValue != null) {
       ann.body = { type: api.bodyType ?? '', value: api.bodyValue ?? '' };
+    }
+    if (api.noteCount != null) {
+      ann.noteCount = api.noteCount;
     }
     return ann;
   }

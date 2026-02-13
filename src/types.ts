@@ -49,6 +49,8 @@ export interface Annotation {
   authorId?: string;
   /** Project ID (if set). */
   projectId?: string;
+
+  noteCount?: number;
 }
 
 /** Author from the backend (GET /authors). Used for note attribution. */

@@ -1,13 +1,16 @@
 /**
  * Annotations tab: current page only. Load from backend, render cards, "Go to source".
+ * Note counts come from the annotation response (noteCount) or from the notes API when not provided.
  */
 
-import type { AnnotationStore } from '../api';
+import type { AnnotationStore, NotesApi } from '../api';
 import { renderAnnotationCard } from './annotation-card';
 
 export interface AnnotationsTabDeps {
   getStore: () => Promise<AnnotationStore>;
   getPageUrl: () => string;
+  /** Used to compute note counts per annotation when backend does not return noteCount. */
+  getNotesApi?: () => Promise<NotesApi>;
   onGoToSource: (annotationId: string) => void;
 }
 
@@ -19,7 +22,7 @@ export async function renderAnnotationsTab(
   _context: 'this-page',
   deps: AnnotationsTabDeps
 ): Promise<void> {
-  const { getStore, getPageUrl, onGoToSource } = deps;
+  const { getStore, getPageUrl, getNotesApi, onGoToSource } = deps;
   container.innerHTML = '';
   container.style.cssText = `
     flex: 1;
@@ -37,6 +40,25 @@ export async function renderAnnotationsTab(
   try {
     const store = await getStore();
     const list = await store.load({ pageUrl: getPageUrl() });
+
+    let noteCountByAnnotationId: Map<string, number> = new Map();
+    if (list.length > 0 && getNotesApi) {
+      try {
+        const notesApi = await getNotesApi();
+        const allNotes = await notesApi.listNotes({});
+        for (const note of allNotes) {
+          if (note.annotationId) {
+            noteCountByAnnotationId.set(
+              note.annotationId,
+              (noteCountByAnnotationId.get(note.annotationId) ?? 0) + 1
+            );
+          }
+        }
+      } catch (_) {
+        // Use backend noteCount only when notes API is unavailable
+      }
+    }
+
     loading.remove();
 
     if (list.length === 0) {
@@ -53,8 +75,12 @@ export async function renderAnnotationsTab(
     const listEl = document.createElement('div');
     listEl.style.cssText = 'display: flex; flex-direction: column;';
     for (const ann of list) {
+      const noteCount =
+        ann.noteCount ??
+        noteCountByAnnotationId.get(ann.id) ??
+        0;
       const card = renderAnnotationCard(ann, {
-        notesCount: 0,
+        noteCount,
         onGoToSource,
       });
       listEl.appendChild(card);

@@ -115,6 +115,7 @@ export function mountAnnotatorUI(options: MountAnnotatorUIOptions): AnnotatorUIH
       renderAnnotationsTab(main, payload.context, {
         getStore: _getStore,
         getPageUrl: _getPageUrl,
+        getNotesApi: _getNotesApi,
         onGoToSource: goToSource,
       });
     } else if (payload.tabId === 'notes') {
