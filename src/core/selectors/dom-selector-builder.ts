@@ -1,85 +1,77 @@
 import type {
-  RangeSelector,
-  TextPositionSelector,
-  TextQuoteSelector,
+  Selector,
 } from '../../types';
 import type {
   Mapper,
-  RangeSelectorBuilder,
-  TextPositionSelectorBuilder,
-  TextQuoteSelectorBuilder,
 } from './types';
 
 
 const TEXT_QUOTE_CONTEXT_LENGTH = 32;
 
-export class DomRangeSelectorBuilder implements RangeSelectorBuilder {
-  build(domRange: Range, root: Node): RangeSelector {
-    const startElement = getElementContaining(domRange.startContainer);
-    const endElement = getElementContaining(domRange.endContainer);
-    if (!startElement || !endElement) {
-      throw new Error('Range start or end is not inside an element under root');
-    }
-    const rootEl = root.nodeType === Node.DOCUMENT_NODE
-      ? (root as Document).body
-      : (root as Element);
-    if (!rootEl || !rootEl.contains(startElement) || !rootEl.contains(endElement)) {
-      throw new Error('Range is not within the given root');
-    }
-    return {
-      start: getXPathFromRoot(startElement, rootEl),
-      end: getXPathFromRoot(endElement, rootEl),
-      startOffset: getOffsetInElement(startElement, domRange.startContainer, domRange.startOffset),
-      endOffset: getOffsetInElement(endElement, domRange.endContainer, domRange.endOffset),
-    };
+export function buildFromRange(domRange: Range, root: Node): Partial<Selector> {
+  const startElement = getElementContaining(domRange.startContainer);
+  const endElement = getElementContaining(domRange.endContainer);
+  if (!startElement || !endElement) {
+    throw new Error('Range start or end is not inside an element under root');
   }
-
-  resolve(selector: RangeSelector, root: Node, expectedQuote?: string): Range | null {
-    const rootEl = getRootElement(root);
-    if (!rootEl) return null;
-
-    const startEl = nodeFromXPath(rootEl, selector.start);
-    const endEl = nodeFromXPath(rootEl, selector.end);
-    if (!startEl || !endEl) return null;
-
-    const startPos = offsetInElementToDomPosition(startEl, selector.startOffset);
-    const endPos = offsetInElementToDomPosition(endEl, selector.endOffset);
-    if (!startPos || !endPos) return null;
-
-    const range = document.createRange();
-    range.setStart(startPos.node, startPos.offset);
-    range.setEnd(endPos.node, endPos.offset);
-
-    if (expectedQuote != null && range.toString().trim() !== expectedQuote.trim()) {
-      return null;
-    }
-    return range;
+  const rootEl = root.nodeType === Node.DOCUMENT_NODE
+    ? (root as Document).body
+    : (root as Element);
+  if (!rootEl || !rootEl.contains(startElement) || !rootEl.contains(endElement)) {
+    throw new Error('Range is not within the given root');
   }
+  return {
+    start: getXPathFromRoot(startElement, rootEl),
+    end: getXPathFromRoot(endElement, rootEl),
+    startOffset: getOffsetInElement(startElement, domRange.startContainer, domRange.startOffset),
+    endOffset: getOffsetInElement(endElement, domRange.endContainer, domRange.endOffset),
+  };
 }
 
-export class DomTextPositionSelectorBuilder implements TextPositionSelectorBuilder {
-  build(domRange: Range, mapper: Mapper): TextPositionSelector {
-    const { start, end } = mapper.rangeToOffsets(domRange);
-    return { start, end };
-  }
+export function resolveFromRange(selector: Selector, root: Node, expectedQuote?: string): Range | null {
+  const rootEl = getRootElement(root);
+  if (!rootEl) return null;
 
-  resolve(selector: TextPositionSelector, mapper: Mapper, _expectedQuote?: string): Range | null {
-    return mapper.offsetsToRange(selector.start, selector.end);
+  const startEl = nodeFromXPath(rootEl, selector.start);
+  const endEl = nodeFromXPath(rootEl, selector.end);
+  if (!startEl || !endEl) return null;
+
+  const startPos = offsetInElementToDomPosition(startEl, selector.startOffset);
+  const endPos = offsetInElementToDomPosition(endEl, selector.endOffset);
+  if (!startPos || !endPos) return null;
+
+  const range = document.createRange();
+  range.setStart(startPos.node, startPos.offset);
+  range.setEnd(endPos.node, endPos.offset);
+
+  if (expectedQuote != null && range.toString().trim() !== expectedQuote.trim()) {
+    return null;
   }
+  return range;
 }
 
-export class DomTextQuoteSelectorBuilder implements TextQuoteSelectorBuilder {
-  build(
-    documentText: string,
-    start: number,
-    end: number,
-  ): TextQuoteSelector {
-    const exact = documentText.slice(start, end);
-    const prefix = documentText.slice(Math.max(0, start - TEXT_QUOTE_CONTEXT_LENGTH), start);
-    const suffix = documentText.slice(end, Math.min(documentText.length, end + TEXT_QUOTE_CONTEXT_LENGTH));
-    return { exact, prefix, suffix };
-  }
+
+export function buildFromTextPosition(domRange: Range, mapper: Mapper): Partial<Selector> {
+  const { start, end } = mapper.rangeToOffsets(domRange);
+  return { start: String(start), end: String(end), startOffset: start, endOffset: end };
 }
+
+export function resolveFromTextPosition(selector: Selector, mapper: Mapper, _expectedQuote?: string): Range | null {
+  return mapper.offsetsToRange(selector.startOffset, selector.endOffset);
+}
+
+
+export function buildFromTextQuote(
+  documentText: string,
+  start: number,
+  end: number,
+): Partial<Selector> {
+  const exact = documentText.slice(start, end);
+  const prefix = documentText.slice(Math.max(0, start - TEXT_QUOTE_CONTEXT_LENGTH), start);
+  const suffix = documentText.slice(end, Math.min(documentText.length, end + TEXT_QUOTE_CONTEXT_LENGTH));
+  return { exact, prefix, suffix };
+}
+
 
 export function nodeFromXPath(root: Element, xpath: string): Element | null {
   const segments = xpath.split('/').filter(Boolean);

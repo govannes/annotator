@@ -1,4 +1,4 @@
-import type { TextQuoteSelector } from '../../types';
+import type { Selector } from '../../types';
 
 export function findAllExactMatches(
   documentText: string,
@@ -89,7 +89,7 @@ export function pickBestMatch(
  */
 export function anchorFromQuoteContext(
   documentText: string,
-  quote: TextQuoteSelector,
+  quote: Pick<Selector, 'exact' | 'prefix' | 'suffix'>,
   hintStart?: number,
   fuzzy?: boolean
 ): { start: number; end: number } | null {

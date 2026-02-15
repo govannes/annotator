@@ -26,7 +26,7 @@ export class AnnotationHighlighter {
   ) {}
 
     getTargetText(): string {
-    const exact = this.annotation.target.selector?.textQuote?.exact;
+    const exact = this.annotation.selector?.exact;
     return exact != null ? String(exact).trim() : '';
   }
 

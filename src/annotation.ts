@@ -13,7 +13,6 @@ export interface AnnotatePayload {
   range: Range;
   root: Element;
   pageUrl: string;
-  source?: string;
   body?: { type: string; value: string };
 }
 
@@ -25,7 +24,6 @@ export interface LoadResult {
 
 export async function annotate(payload: AnnotatePayload): Promise<Annotation> {
   const { range, root, pageUrl, body } = payload;
-  const source = payload.source ?? pageUrl;
 
   const anchorer = new DomAnchorer();
   const { text: docText, mapper } = build(root);
@@ -33,7 +31,7 @@ export async function annotate(payload: AnnotatePayload): Promise<Annotation> {
 
   const annotation: Annotation = {
     id: crypto.randomUUID(),
-    target: { source, selector },
+    selector,
     pageUrl,
     created: new Date().toISOString(),
     body,
@@ -48,7 +46,7 @@ export async function annotate(payload: AnnotatePayload): Promise<Annotation> {
 
 export async function load(pageUrl: string, root: Element): Promise<LoadResult> {
   const all = await loadAnnotations();
-  const annotations = all.filter((a) => a.target.source === pageUrl);
+  const annotations = all.filter((a) => a.pageUrl === pageUrl);
 
   clearHighlights(root);
   let anchored = 0;

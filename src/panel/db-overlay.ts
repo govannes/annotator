@@ -68,7 +68,7 @@ function buildEmptyCard(): HTMLDivElement {
 
 interface AnnotationCardData {
   id: string;
-  target?: { selector?: { textQuote?: { exact?: string } } };
+  selector?: { exact?: string };
   created?: string;
   highlightColor?: string;
 }
@@ -82,7 +82,7 @@ function buildAnnotationCard(ann: AnnotationCardData): HTMLDivElement {
     padding: 10px 12px;
     margin-bottom: 8px;
   `;
-  const quote = ann.target?.selector?.textQuote?.exact ?? '(no quote)';
+  const quote = ann.selector?.exact ?? '(no quote)';
   const truncated = quote.length > 80 ? quote.slice(0, 80) + '...' : quote;
   const created = ann.created
     ? new Date(ann.created).toLocaleString()
@@ -133,7 +133,7 @@ export function setupShowDbButton(
     const all = await loadAnnotations();
     const pageUrl = window.location.href;
     const pageAnnotations = all.filter(
-      (a) => a.pageUrl === pageUrl || a.target?.source === pageUrl,
+      (a) => a.pageUrl === pageUrl,
     );
 
     const overlay = buildOverlayElement();

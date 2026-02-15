@@ -1,33 +1,16 @@
-export interface RangeSelector {
+export interface Selector {
+  exact: string;       
+  prefix: string;      
+  suffix: string;   
   start: string;       
   end: string;
   startOffset: number; 
   endOffset: number;
 }
 
-export interface TextPositionSelector {
-  start: number;       
-  end: number;
-}
-
-export interface TextQuoteSelector {
-  exact: string;       
-  prefix: string;      
-  suffix: string;      
-}
-
-export interface AnnotationTarget {
-  source: string;      
-  selector: {
-    range?: RangeSelector;
-    textPosition?: TextPositionSelector;
-    textQuote?: TextQuoteSelector;
-  };
-}
-
 export interface Annotation {
   id: string;
-  target: AnnotationTarget;
+  selector: Selector;
   pageUrl?: string;
   baseUrl?: string;
   body?: { type: string; value: string };

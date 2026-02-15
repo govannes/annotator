@@ -1,9 +1,11 @@
-import type { Annotation, AnnotationTarget, AnchorResult, AnchoringStrategy } from '../../types';
+import type { Annotation, Selector, AnchorResult, AnchoringStrategy } from '../../types';
 import type { Mapper } from '../selectors/types';
 import {
-  DomRangeSelectorBuilder,
-  DomTextPositionSelectorBuilder,
-  DomTextQuoteSelectorBuilder,
+  buildFromRange,
+  resolveFromRange,
+  buildFromTextPosition,
+  resolveFromTextPosition,
+  buildFromTextQuote,
 } from '../selectors/dom-selector-builder';
 
 import {
@@ -15,40 +17,42 @@ import {
 
 
 export class DomAnchorer  {
-  private readonly rangeBuilder = new DomRangeSelectorBuilder();
-  private readonly positionBuilder = new DomTextPositionSelectorBuilder();
-  private readonly quoteBuilder = new DomTextQuoteSelectorBuilder();
 
   buildSelectors(
     range: Range,
     root: Node,
     mapper: Mapper,
     documentText: string,
-  ): AnnotationTarget['selector'] {
+  ): Selector {
     const rootEl = root.nodeType === Node.DOCUMENT_NODE ? (root as Document).body : (root as Element);
     if (!rootEl) throw new Error('DomAnchorer.buildSelectors: invalid root');
 
-    const rangeSel = this.rangeBuilder.build(range, rootEl);
-    const textPositionSel = this.positionBuilder.build(range, mapper);
-    const textQuoteSel = this.quoteBuilder.build(
+    const rangeParts = buildFromRange(range, rootEl);
+    const positionParts = buildFromTextPosition(range, mapper);
+    const quoteParts = buildFromTextQuote(
       documentText,
-      textPositionSel.start,
-      textPositionSel.end
+      positionParts.startOffset!,
+      positionParts.endOffset!,
     );
 
     return {
-      range: rangeSel,
-      textPosition: textPositionSel,
-      textQuote: textQuoteSel,
+      start: rangeParts.start ?? '',
+      end: rangeParts.end ?? '',
+      startOffset: rangeParts.startOffset ?? 0,
+      endOffset: rangeParts.endOffset ?? 0,
+      exact: quoteParts.exact ?? '',
+      prefix: quoteParts.prefix ?? '',
+      suffix: quoteParts.suffix ?? '',
     };
   }
 
   anchor(annotation: Annotation, root: Node, text: string, mapper: Mapper): AnchorResult {
-    const { selector } = annotation.target;
-    const expectedQuote = selector.textQuote?.exact?.trim();
+    const selector = annotation.selector;
+    const expectedQuote = selector.exact?.trim() || undefined;
 
-    if (selector.range) {
-      let range = this.rangeBuilder.resolve(selector.range, root, expectedQuote ?? undefined);
+    // Strategy 1: Range selector (XPath + offsets)
+    if (selector.start && selector.end) {
+      let range = resolveFromRange(selector, root, expectedQuote);
       if (range && !range.collapsed) {
         if (expectedQuote && text) {
           range = this.disambiguateQuote(range, expectedQuote, text, mapper, selector);
@@ -57,8 +61,9 @@ export class DomAnchorer  {
       }
     }
 
-    if (selector.textPosition) {
-      let range = this.positionBuilder.resolve(selector.textPosition, mapper, expectedQuote ?? undefined);
+    // Strategy 2: Text position selector (character offsets)
+    if (selector.startOffset != null && selector.endOffset != null) {
+      let range = resolveFromTextPosition(selector, mapper, expectedQuote);
       if (range && !range.collapsed) {
         if (expectedQuote && text) {
           range = this.disambiguateQuote(range, expectedQuote, text, mapper, selector);
@@ -67,11 +72,12 @@ export class DomAnchorer  {
       }
     }
 
-    if (text && selector.textQuote) {
+    // Strategy 3: Quote with context (prefix + exact + suffix)
+    if (text && selector.exact) {
       const offsets = anchorFromQuoteContext(
         text,
-        selector.textQuote,
-        selector.textPosition?.start,
+        selector,
+        selector.startOffset,
         true
       );
       if (offsets) {
@@ -82,12 +88,12 @@ export class DomAnchorer  {
       }
     }
 
-    if (text && selector.textQuote?.exact) {
-      const quote = selector.textQuote;
-      const offsets = anchorFromQuoteOnly(text, quote.exact, {
-        positionHint: selector.textPosition?.start,
-        prefix: quote.prefix,
-        suffix: quote.suffix,
+    // Strategy 4: Quote only (exact text search)
+    if (text && selector.exact) {
+      const offsets = anchorFromQuoteOnly(text, selector.exact, {
+        positionHint: selector.startOffset,
+        prefix: selector.prefix,
+        suffix: selector.suffix,
       });
       if (offsets) {
         const range = mapper.offsetsToRange(offsets.start, offsets.end);
@@ -108,7 +114,7 @@ export class DomAnchorer  {
     expectedQuote: string,
     text: string,
     mapper: Mapper,
-    selector: Annotation['target']['selector']
+    selector: Selector
   ): Range {
     const matches = findAllExactMatches(text, expectedQuote);
     if (matches.length <= 1) return range;
@@ -124,9 +130,9 @@ export class DomAnchorer  {
     }
 
     const best = pickBestMatch(matches, text, {
-      positionHint: selector.textPosition?.start,
-      prefix: selector.textQuote?.prefix,
-      suffix: selector.textQuote?.suffix,
+      positionHint: selector.startOffset,
+      prefix: selector.prefix,
+      suffix: selector.suffix,
     });
     if (!best || (best.start === rangeStart && best.end === rangeEnd)) return range;
 
