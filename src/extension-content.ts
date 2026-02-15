@@ -1,5 +1,4 @@
 import { createLocalStore, type AnnotationStore } from './api';
-import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
 
 let storeInstance: AnnotationStore | null = null;
@@ -306,7 +305,6 @@ function scheduleDynamicReattach(reason: string): void {
     reattachLog('skip schedule: annotating complete');
     return;
   }
-  if (!isContentScopedPage()) return;
   if (dynamicReattachTimeout) clearTimeout(dynamicReattachTimeout);
   reattachLog('scheduling reattach in', DYNAMIC_REATTACH_DEBOUNCE_MS, 'ms —', reason);
   dynamicReattachTimeout = setTimeout(() => {
@@ -336,7 +334,6 @@ async function runReattach(trigger: string): Promise<void> {
 }
 
 function watchForDynamicContent(): void {
-  if (!isContentScopedPage()) return;
   const body = document.body;
   dynamicContentObserveTarget = body;
   dynamicContentObserver = new MutationObserver(dynamicContentCallback);

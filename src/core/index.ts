@@ -41,8 +41,6 @@ export {
 
 export { build, type DomTextMapperResult } from './dom-text-mapper';
 
-export { isContentScopedPage } from './content-url';
-
 export {
   createAnnotationHighlighter,
   AnnotationHighlighter,
