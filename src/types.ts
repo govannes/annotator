@@ -1,28 +1,23 @@
-/**
- * Annotation data shapes.
- * Frontend creates/updates selector; storage only stores/returns these.
- */
-
 export interface RangeSelector {
-  start: string;       // XPath to element containing start of selection
+  start: string;       
   end: string;
-  startOffset: number; // character offset within that element's text
+  startOffset: number; 
   endOffset: number;
 }
 
 export interface TextPositionSelector {
-  start: number;       // character offset in "whole document" text
+  start: number;       
   end: number;
 }
 
 export interface TextQuoteSelector {
-  exact: string;       // selected text
-  prefix: string;      // e.g. 32 chars before
-  suffix: string;      // e.g. 32 chars after
+  exact: string;       
+  prefix: string;      
+  suffix: string;      
 }
 
 export interface AnnotationTarget {
-  source: string;      // URL of the document (which page)
+  source: string;      
   selector: {
     range?: RangeSelector;
     textPosition?: TextPositionSelector;
@@ -33,29 +28,20 @@ export interface AnnotationTarget {
 export interface Annotation {
   id: string;
   target: AnnotationTarget;
-  /** Page URL where the annotation was created (always stored). */
-  pageUrl?: string;
-  /** Base URL (origin) of the page, for filtering. */
-  baseUrl?: string;
+    pageUrl?: string;
+    baseUrl?: string;
   body?: { type: string; value: string };
   created?: string;
-  /** Highlight style: e.g. 'highlight', 'underline', 'sticky-note'. */
-  highlightType?: string;
-  /** CSS color for the highlight, e.g. '#ffff00' or 'rgba(255,220,0,0.35)'. */
-  highlightColor?: string;
+    highlightType?: string;
+    highlightColor?: string;
 }
 
-/**
- * Which anchoring strategy succeeded (Hypothesis-style order).
- * See https://web.hypothes.is/blog/fuzzy-anchoring/
- */
 export type AnchoringStrategy =
-  | 'range'         // 1. RangeSelector (XPath + offsets) – exact DOM
-  | 'position'      // 2. TextPositionSelector – global char offsets
-  | 'quote-context' // 3. TextQuoteSelector prefix+exact+suffix (fuzzy)
-  | 'quote-only';   // 4. TextQuoteSelector exact only (fuzzy)
+  | 'range'         
+  | 'position'      
+  | 'quote-context' 
+  | 'quote-only';   
 
-/** Result of resolving an annotation to a DOM Range. Reproducible and debuggable. */
 export type AnchorResult =
   | { ok: true; range: Range; strategy: AnchoringStrategy }
   | { ok: false; error: string };

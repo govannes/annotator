@@ -1,21 +1,12 @@
-/**
- * Storage interface (START.md Step 14).
- * Swap in-memory/localStorage for fetch() to your backend later.
- */
-
 import type { Annotation } from '../types';
 
 export interface SaveOptions {
-  /** When saving an annotation, optionally store a snapshot of the full page. */
-  fullPage?: { html: string; baseUrl: string; fullPath: string };
+    fullPage?: { html: string; baseUrl: string; fullPath: string };
 }
 
-/** Options to filter annotations when loading. */
 export interface LoadOptions {
-  /** Filter by exact page URL. */
-  pageUrl?: string;
-  /** Filter by base URL (origin). */
-  baseUrl?: string;
+    pageUrl?: string;
+    baseUrl?: string;
 }
 
 export interface AnnotationStore {
@@ -24,7 +15,6 @@ export interface AnnotationStore {
   delete(id: string): Promise<void>;
 }
 
-/** In-memory implementation for development. */
 export function createMemoryStore(): AnnotationStore {
   const store = new Map<string, Annotation>();
 

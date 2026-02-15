@@ -1,17 +1,6 @@
-/**
- * DOM Highlighter: wraps text runs in <span class="annotator-highlight">.
- *
- * Only text is highlighted — each run of text in the range gets its own span
- * so that structure (tables, lists, etc.) is never broken.
- */
-
 import type { Highlighter, HighlightStyle } from './types';
 
 const HIGHLIGHT_CLASS = 'annotator-highlight';
-
-// ---------------------------------------------------------------------------
-// DomHighlighter
-// ---------------------------------------------------------------------------
 
 export class DomHighlighter implements Highlighter {
   draw(range: Range, annotationId: string, style: HighlightStyle = {}): boolean {
@@ -31,14 +20,6 @@ export class DomHighlighter implements Highlighter {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Standalone functions (kept for backward compatibility and direct use)
-// ---------------------------------------------------------------------------
-
-/**
- * Highlight the given range without breaking DOM structure.
- * Returns true if at least one highlight was applied.
- */
 export function highlightRange(
   range: Range,
   annotationId: string,
@@ -73,10 +54,6 @@ export function isHighlightElement(el: Element): boolean {
   return el.classList.contains(HIGHLIGHT_CLASS);
 }
 
-/**
- * Remove all annotator highlights from the given root (unwrap spans).
- * Use before re-running load-and-draw so highlights are not duplicated.
- */
 export function clearHighlights(root: Element): void {
   const list = root.querySelectorAll(`.${HIGHLIGHT_CLASS}`);
   list.forEach((el) => {
@@ -95,17 +72,12 @@ export function clearHighlights(root: Element): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 interface TextSegment {
   node: Text;
   start: number;
   end: number;
 }
 
-/** Returns the intersection of range with a text node as offsets, or null if none. */
 function getTextNodeSlice(textNode: Text, range: Range): { start: number; end: number } | null {
   if (!range.intersectsNode(textNode)) return null;
   const nodeRange = document.createRange();
@@ -121,7 +93,6 @@ function getTextNodeSlice(textNode: Text, range: Range): { start: number; end: n
   return { start: intersectionStart, end: intersectionEnd };
 }
 
-/** True if the range fully contains the element. */
 function rangeFullyContainsElement(range: Range, element: Element): boolean {
   const elRange = document.createRange();
   elRange.selectNodeContents(element);

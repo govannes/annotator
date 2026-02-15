@@ -1,13 +1,3 @@
-/**
- * Derive a stable content URL from the DOM so annotations can be tied to a
- * specific block (tweet, post, article, etc.) on any dynamic page. We walk up
- * from the selection and look for: permalink-style links, element id, or
- * data-* attributes that identify the content block.
- */
-
-/**
- * Resolve a possibly relative URL to an absolute URL using the current origin.
- */
 export function toAbsoluteUrl(href: string): string {
   if (typeof window === 'undefined') return href;
   try {
@@ -17,7 +7,6 @@ export function toAbsoluteUrl(href: string): string {
   }
 }
 
-/** Path segments that often indicate a content permalink (post, article, thread, etc.). */
 const PERMALINK_PATH_PATTERNS = [
   '/status/',
   '/post/',
@@ -60,31 +49,18 @@ function isPermalinkStyleHref(href: string): boolean {
   }
 }
 
-/** Generic ids we don't use as content keys (layout/app shells). */
 const GENERIC_IDS = new Set([
   'app', 'root', 'main', 'content', 'wrapper', 'container', 'layout',
   'page', 'body', 'header', 'footer', 'nav', 'sidebar', 'menu', 'modal',
   'dialog', 'overlay', 'panel', 'toolbar', 'editor', 'view', 'screen',
 ]);
 
-/** data-* attribute names that often hold a content or item identifier. */
 const DATA_ID_ATTRS = [
   'data-id', 'data-post-id', 'data-item-id', 'data-article-id', 'data-status-id',
   'data-url', 'data-permalink', 'data-href', 'data-comment-id', 'data-tweet-id',
   'data-message-id', 'data-thread-id', 'data-slug',
 ];
 
-/**
- * Get a stable content URL/key for an element by looking at:
- * 1) A permalink-style link inside (or on) the element
- * 2) The element's id (if not generic)
- * 3) data-* attributes that look like an id or URL
- */
-/**
- * Get a stable content URL for an element: permalink-style link (in or on the element),
- * element id, or data-* attributes. When preferPageUrl is true (for a block), prefer a link
- * that matches the current page so we identify the block we're on, not a link inside it.
- */
 function getContentUrlForElement(
   el: Element,
   options?: { preferPageUrl?: boolean }
@@ -124,7 +100,6 @@ function getContentUrlForElement(
   return null;
 }
 
-/** Walk up from a node and return the nearest block (article, tweet, etc.) ancestor, or null. */
 function findNearestBlockAncestor(node: Node): Element | null {
   let n: Node | null = node;
   while (n) {
@@ -134,13 +109,6 @@ function findNearestBlockAncestor(node: Node): Element | null {
   return null;
 }
 
-/**
- * Walk up from the selection and return a URL that identifies the content block.
- * - If the selection is inside a block (article, tweet, etc.), we use that block's URL and
- *   prefer a link that matches the current page (so we get the tweet we're on, not a link in the text).
- * - Otherwise we return the first ancestor with an id or permalink-style link.
- * Returns null if none found (caller uses page URL for source).
- */
 export function getContentUrlFromRange(range: Range, _root: Element): string | null {
   const block = findNearestBlockAncestor(range.startContainer);
   if (block) {
@@ -160,9 +128,6 @@ export function getContentUrlFromRange(range: Range, _root: Element): string | n
   return null;
 }
 
-/**
- * Heuristic: is this element a reasonable "block root" for content (e.g. article, post card)?
- */
 function isBlockLike(el: Element): boolean {
   const tag = el.tagName.toLowerCase();
   if (tag === 'article') return true;
@@ -188,11 +153,6 @@ function getBlockRootForLink(link: Element): Element {
   return best;
 }
 
-/**
- * Discover all visible content blocks and their content URL.
- * - Finds permalink-style links, then uses their block ancestor as root.
- * - Finds elements with a non-generic id and uses pageUrl#id.
- */
 export function getContentRoots(root: Element): { contentUrl: string; blockRoot: Element }[] {
   const seen = new Map<string, Element>();
   const base = typeof window !== 'undefined' ? window.location.href.split('#')[0]! : '';
@@ -222,10 +182,6 @@ export function getContentRoots(root: Element): { contentUrl: string; blockRoot:
   return Array.from(seen.entries(), ([contentUrl, blockRoot]) => ({ contentUrl, blockRoot }));
 }
 
-/**
- * Whether to use content-scoped behavior (find content URLs, re-attach per block).
- * We always try on any page so dynamic sites work without a hardcoded list.
- */
 export function isContentScopedPage(): boolean {
   return true;
 }

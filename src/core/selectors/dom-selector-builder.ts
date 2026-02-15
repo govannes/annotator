@@ -1,10 +1,3 @@
-/**
- * DOM implementation of selector builders.
- *
- * Builds RangeSelector, TextPositionSelector, and TextQuoteSelector from
- * standard DOM Ranges. This is the default for regular web pages.
- */
-
 import type {
   RangeSelector,
   TextPositionSelector,
@@ -16,10 +9,6 @@ import type {
   TextPositionSelectorBuilder,
   TextQuoteSelectorBuilder,
 } from './types';
-
-// ---------------------------------------------------------------------------
-// RangeSelector (XPath + offsets)
-// ---------------------------------------------------------------------------
 
 export class DomRangeSelectorBuilder implements RangeSelectorBuilder {
   build(domRange: Range, root: Node): RangeSelector {
@@ -65,10 +54,6 @@ export class DomRangeSelectorBuilder implements RangeSelectorBuilder {
   }
 }
 
-// ---------------------------------------------------------------------------
-// TextPositionSelector (global char offsets)
-// ---------------------------------------------------------------------------
-
 export class DomTextPositionSelectorBuilder implements TextPositionSelectorBuilder {
   build(domRange: Range, mapper: Mapper): TextPositionSelector {
     const { start, end } = mapper.rangeToOffsets(domRange);
@@ -79,10 +64,6 @@ export class DomTextPositionSelectorBuilder implements TextPositionSelectorBuild
     return mapper.offsetsToRange(selector.start, selector.end);
   }
 }
-
-// ---------------------------------------------------------------------------
-// TextQuoteSelector (exact + prefix + suffix)
-// ---------------------------------------------------------------------------
 
 export class DomTextQuoteSelectorBuilder implements TextQuoteSelectorBuilder {
   build(
@@ -99,11 +80,6 @@ export class DomTextQuoteSelectorBuilder implements TextQuoteSelectorBuilder {
   }
 }
 
-// ---------------------------------------------------------------------------
-// XPath utilities
-// ---------------------------------------------------------------------------
-
-/** Resolve XPath string (e.g. "div[1]/p[2]") to a DOM element under root. */
 export function nodeFromXPath(root: Element, xpath: string): Element | null {
   const segments = xpath.split('/').filter(Boolean);
   let current: Element | null = root;
@@ -123,7 +99,6 @@ export function nodeFromXPath(root: Element, xpath: string): Element | null {
   return current;
 }
 
-/** Map a character offset within an element's text to a (Text node, offset) for Range. */
 export function offsetInElementToDomPosition(
   element: Element,
   charOffset: number
@@ -142,17 +117,12 @@ export function offsetInElementToDomPosition(
   return result;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
 function getRootElement(root: Node): Element | null {
   if (root.nodeType === Node.DOCUMENT_NODE) return (root as Document).body;
   if (root.nodeType === Node.ELEMENT_NODE) return root as Element;
   return null;
 }
 
-/** Element that contains the (node, offset) position. */
 function getElementContaining(node: Node): Element | null {
   if (node.nodeType === Node.TEXT_NODE) {
     const parent = node.parentNode;
@@ -162,7 +132,6 @@ function getElementContaining(node: Node): Element | null {
   return null;
 }
 
-/** 1-based XPath from root to element, e.g. "div[1]/p[2]". */
 function getXPathFromRoot(element: Element, root: Element): string {
   const segments: string[] = [];
   let el: Element | null = element;
@@ -178,7 +147,6 @@ function getXPathFromRoot(element: Element, root: Element): string {
   return segments.join('/');
 }
 
-/** Character offset from the start of element's text to (container, offset). */
 function getOffsetInElement(element: Element, container: Node, offset: number): number {
   let pos = 0;
   const found = walkTextUntil(element, (node, len) => {

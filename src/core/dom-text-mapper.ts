@@ -1,25 +1,13 @@
-/**
- * Phase A (START.md Steps 1–2): Document as string + DOM ↔ offset mapping.
- * Uses node-html-parser to parse the root's HTML and extract document text
- * in DOM order; real DOM is walked in parallel for the offset ↔ Range mapping.
- */
-
 import { parse, NodeType } from 'node-html-parser';
 import type { HTMLElement as ParsedHTMLElement, Node as ParsedNode } from 'node-html-parser';
 import type { Mapper, TextMapperResult } from './selectors';
 
-/** Segment: character range [start, end) in document text and the corresponding DOM Text node. */
 interface Segment {
   start: number;
   end: number;
   node: Text;
 }
 
-/**
- * Step 1: Extract full document text from root using node-html-parser.
- * Parses root's innerHTML and walks the parsed tree in document order,
- * concatenating visible text (same order as user selection).
- */
 export function getDocumentText(root: Node): string {
   const html = serializeRoot(root);
   const parsed = parse(html);
@@ -110,10 +98,7 @@ export function build(root: Node): TextMapperResult {
   return { text: finalText, mapper };
 }
 
-// DomTextMapperResult is an alias for TextMapperResult (backward compatibility).
 export type DomTextMapperResult = TextMapperResult;
-
-// --- Helpers ---
 
 function serializeRoot(root: Node): string {
   if (root.nodeType === Node.DOCUMENT_NODE) {
@@ -144,7 +129,6 @@ function walkParsedText(parsed: ParsedNode, onText: (text: string) => void): voi
   for (const child of root.childNodes ?? []) visit(child);
 }
 
-/** Depth-first walk of real DOM; callback for each Text node in document order. */
 function walkDomTextNodes(root: Node, onText: (node: Text) => void): void {
   const visit = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -172,12 +156,6 @@ function positionToOffset(
   return null;
 }
 
-/**
- * Normalize a (node, offset) position to (Text node, character offset).
- * When the range's container is an Element, offset is a child index; we convert to the
- * corresponding text position. For bound 'end', (element, 0) means "before first child"
- * so we use the previous node's last text position.
- */
 function normalizeToTextPosition(
   node: Node,
   offset: number,
@@ -207,7 +185,6 @@ function normalizeToTextPosition(
   return first ? { node: first, offset: 0 } : null;
 }
 
-/** Last (text node, offset) that precedes element in document order (for range end at (element, 0)). */
 function getLastTextNodeBefore(element: Element): { node: Text; offset: number } | null {
   let prev: Node | null = element.previousSibling;
   while (prev) {

@@ -1,9 +1,3 @@
-/**
- * localStorage-backed AnnotationStore.
- * All annotations are stored as a single JSON array under `STORAGE_KEY`.
- * Filtering by pageUrl happens client-side on load().
- */
-
 import type { Annotation } from '../types';
 import type { AnnotationStore, LoadOptions, SaveOptions } from './storage';
 
@@ -24,9 +18,6 @@ function writeAll(annotations: Annotation[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(annotations));
 }
 
-/**
- * Create an AnnotationStore backed by localStorage.
- */
 export function createLocalStore(): AnnotationStore {
   return {
     async load(options?: LoadOptions): Promise<Annotation[]> {

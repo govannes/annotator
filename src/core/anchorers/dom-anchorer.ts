@@ -1,15 +1,3 @@
-/**
- * DOM Anchorer: four-strategy Hypothesis-style fuzzy anchoring.
- *
- * Strategies (tried in order):
- * 1. RangeSelector  — XPath + offsets (exact DOM match)
- * 2. TextPosition   — global char offsets (structure changed, text same)
- * 3. Quote+context  — prefix + exact + suffix fuzzy search
- * 4. Quote-only     — exact text search, disambiguated by position/context
- *
- * @see https://web.hypothes.is/blog/fuzzy-anchoring/
- */
-
 import type { Annotation, AnnotationTarget, AnchorResult, AnchoringStrategy } from '../../types';
 import type { Mapper } from '../selectors';
 import {
@@ -25,12 +13,7 @@ import {
   anchorFromQuoteOnly,
 } from './text-search';
 
-/** Length of prefix/suffix context for TextQuoteSelector (Hypothesis uses 32). */
 export const TEXT_QUOTE_CONTEXT_LENGTH = 32;
-
-// ---------------------------------------------------------------------------
-// DomAnchorer
-// ---------------------------------------------------------------------------
 
 export class DomAnchorer implements AnchorerInterface {
   private readonly rangeBuilder = new DomRangeSelectorBuilder();
@@ -70,7 +53,6 @@ export class DomAnchorer implements AnchorerInterface {
     const expectedQuote = selector.textQuote?.exact?.trim();
     const { text, mapper } = context;
 
-    // 1. From Range Selector
     if (selector.range) {
       let range = this.rangeBuilder.resolve(selector.range, root, expectedQuote ?? undefined);
       if (range && !range.collapsed) {
@@ -81,7 +63,6 @@ export class DomAnchorer implements AnchorerInterface {
       }
     }
 
-    // 2. From Position Selector
     if (selector.textPosition) {
       let range = this.positionBuilder.resolve(selector.textPosition, mapper, expectedQuote ?? undefined);
       if (range && !range.collapsed) {
@@ -92,7 +73,6 @@ export class DomAnchorer implements AnchorerInterface {
       }
     }
 
-    // 3. Context-first Fuzzy Matching (prefix + exact + suffix)
     if (text && selector.textQuote) {
       const offsets = anchorFromQuoteContext(
         text,
@@ -108,7 +88,6 @@ export class DomAnchorer implements AnchorerInterface {
       }
     }
 
-    // 4. Selector-only Fuzzy Matching (exact text only)
     if (text && selector.textQuote?.exact) {
       const quote = selector.textQuote;
       const offsets = anchorFromQuoteOnly(text, quote.exact, {
@@ -130,11 +109,7 @@ export class DomAnchorer implements AnchorerInterface {
     };
   }
 
-  /**
-   * When the same quote appears multiple times, pick the range that best
-   * matches position/prefix/suffix.
-   */
-  private disambiguateQuote(
+    private disambiguateQuote(
     range: Range,
     expectedQuote: string,
     text: string,

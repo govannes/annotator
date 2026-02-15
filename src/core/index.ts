@@ -1,9 +1,3 @@
-/**
- * Core annotator: selectors, highlighters, anchorers, text mapping.
- * No backend — pure DOM and selector logic.
- */
-
-// --- Selectors ---
 export type {
   Mapper,
   TextMapperResult,
@@ -20,7 +14,6 @@ export {
   offsetInElementToDomPosition,
 } from './selectors';
 
-// --- Highlighters ---
 export type { Highlighter, HighlightStyle } from './highlighters';
 
 export {
@@ -31,7 +24,6 @@ export {
   isHighlightElement,
 } from './highlighters';
 
-// --- Anchorers ---
 export type {
   AnchorerInterface,
   AnchorContext,
@@ -47,13 +39,10 @@ export {
   anchorFromQuoteOnly,
 } from './anchorers';
 
-// --- Text mapper ---
 export { build, type DomTextMapperResult } from './dom-text-mapper';
 
-// --- Content URL (kept for isContentScopedPage, but functions unused in barebone) ---
 export { isContentScopedPage } from './content-url';
 
-// --- Annotation highlighter pipeline ---
 export {
   createAnnotationHighlighter,
   AnnotationHighlighter,

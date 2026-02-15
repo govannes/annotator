@@ -1,21 +1,5 @@
-/**
- * Text search utilities shared by anchoring strategies.
- *
- * Pure functions — no DOM dependency. Used by quote-context and quote-only
- * strategies to find text in documents, handle fuzzy whitespace matching,
- * and disambiguate multiple matches.
- */
-
 import type { TextQuoteSelector } from '../../types';
 
-// ---------------------------------------------------------------------------
-// Find matches
-// ---------------------------------------------------------------------------
-
-/**
- * Find all occurrences of exact text in documentText.
- * Used to disambiguate when the same quote appears multiple times.
- */
 export function findAllExactMatches(
   documentText: string,
   exact: string
@@ -32,19 +16,12 @@ export function findAllExactMatches(
   return matches;
 }
 
-// ---------------------------------------------------------------------------
-// Pick best match
-// ---------------------------------------------------------------------------
-
 export interface PickBestMatchOptions {
   positionHint?: number;
   prefix?: string;
   suffix?: string;
 }
 
-/**
- * From multiple quote matches, pick the one that best matches position hint and/or prefix/suffix.
- */
 export function pickBestMatch(
   matches: { start: number; end: number }[],
   documentText: string,

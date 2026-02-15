@@ -1,28 +1,12 @@
-/**
- * Browser extension content script: injects a floating 3-button toolbar and
- * runs the annotator on the page using localStorage for persistence.
- *
- * Buttons: Anchor (highlight selection), Show DB (view stored annotations), Delete (remove selected highlight).
- * Built separately and loaded via manifest.json as the content_script.
- */
-
 import { createLocalStore, type AnnotationStore } from './api';
 import { isContentScopedPage } from './core';
 import { init, reattachHighlights } from './main';
-
-// ---------------------------------------------------------------------------
-// Store (localStorage)
-// ---------------------------------------------------------------------------
 
 let storeInstance: AnnotationStore | null = null;
 function getStore(): Promise<AnnotationStore> {
   if (!storeInstance) storeInstance = createLocalStore();
   return Promise.resolve(storeInstance);
 }
-
-// ---------------------------------------------------------------------------
-// Constants
-// ---------------------------------------------------------------------------
 
 const PANEL_ID = 'annotator-extension-panel';
 const TOOLBAR_ID = 'annotator-extension-toolbar';
@@ -40,10 +24,6 @@ function reattachLog(msg: string, ...args: unknown[]): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Icons (Material 24px outline as inline SVG)
-// ---------------------------------------------------------------------------
-
 const ICONS = {
   moreHoriz:
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>',
@@ -54,10 +34,6 @@ const ICONS = {
   delete:
     '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
 };
-
-// ---------------------------------------------------------------------------
-// Inject floating toolbar
-// ---------------------------------------------------------------------------
 
 function injectPanel(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
@@ -133,16 +109,12 @@ function injectPanel(): boolean {
   return true;
 }
 
-// ---------------------------------------------------------------------------
-// Show DB overlay
-// ---------------------------------------------------------------------------
-
 function setupShowDbButton(): void {
   const btn = document.getElementById('annotator-btn-showdb');
   if (!btn) return;
 
   btn.addEventListener('click', async () => {
-    // Toggle: if overlay exists, close it
+    
     const existing = document.getElementById(DB_OVERLAY_ID);
     if (existing) {
       existing.remove();
@@ -230,11 +202,9 @@ function setupShowDbButton(): void {
 
     document.body.appendChild(overlay);
 
-    // Close button
     const closeBtn = document.getElementById('annotator-db-close');
     closeBtn?.addEventListener('click', () => overlay.remove());
 
-    // Close on click outside
     function onClickOutside(e: MouseEvent): void {
       if (!overlay.contains(e.target as Node) && (e.target as Element)?.id !== 'annotator-btn-showdb') {
         overlay.remove();
@@ -248,10 +218,6 @@ function setupShowDbButton(): void {
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
-
-// ---------------------------------------------------------------------------
-// Toolbar drag
-// ---------------------------------------------------------------------------
 
 function setupToolbarDrag(): void {
   const toolbar = document.getElementById(TOOLBAR_ID);
@@ -301,10 +267,6 @@ function setupToolbarDrag(): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Extension config
-// ---------------------------------------------------------------------------
-
 const extensionConfig = {
   get root() {
     return document.body;
@@ -312,10 +274,6 @@ const extensionConfig = {
   getPageUrl: () => window.location.href,
   getStore,
 };
-
-// ---------------------------------------------------------------------------
-// Re-inject if panel is removed (SPA navigation)
-// ---------------------------------------------------------------------------
 
 let reinjectTimeout: ReturnType<typeof setTimeout> | null = null;
 
@@ -337,10 +295,6 @@ function watchForPanelRemoval(): void {
     subtree: true,
   });
 }
-
-// ---------------------------------------------------------------------------
-// Dynamic content reattach (for SPAs that load content after initial render)
-// ---------------------------------------------------------------------------
 
 let annotatingComplete = false;
 let dynamicReattachTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -393,7 +347,6 @@ function watchForDynamicContent(): void {
   reattachLog('MutationObserver active on document.body');
 }
 
-/** True if node is or is inside our panel or one of our highlight spans. */
 function isOurMutation(node: Node): boolean {
   if (node.nodeType !== Node.ELEMENT_NODE && node.nodeType !== Node.TEXT_NODE) return false;
   const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement;
@@ -421,10 +374,6 @@ function dynamicContentCallback(mutations: MutationRecord[]): void {
   }
   scheduleDynamicReattach(`saw ${mutations.length} mutation(s) from page`);
 }
-
-// ---------------------------------------------------------------------------
-// Run
-// ---------------------------------------------------------------------------
 
 function run(): void {
   const didInject = injectPanel();

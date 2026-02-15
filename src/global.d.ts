@@ -1,7 +1,3 @@
-/**
- * Minimal Chrome extension API types for the content script.
- * For full types: npm i -D @types/chrome
- */
 declare const chrome: {
   storage: {
     local: {

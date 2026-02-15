@@ -1,31 +1,18 @@
-/**
- * Annotator initialization: load annotations, draw highlights, wire button handlers.
- * Barebone version: localStorage only, 3 buttons, page-level annotations.
- */
-
 import { Annotation } from './annotation';
 import { getHighlightAnnotationId } from './core';
 import type { AnnotationStore } from './api';
 
 export interface AnnotatorConfig {
-  /** Root element to annotate (e.g. document.body). */
-  root: Element;
-  /** Current page URL for storing/loading annotations. */
-  getPageUrl: () => string;
-  /** Store implementation. */
-  getStore: () => Promise<AnnotationStore>;
+    root: Element;
+    getPageUrl: () => string;
+    getStore: () => Promise<AnnotationStore>;
 }
 
-/** Hardcoded highlight color (no UI picker in barebone version). */
 const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
 let store: AnnotationStore | null = null;
 let selectedAnnotationId: string | null = null;
 
-/**
- * Initialize the annotator: load annotations, draw highlights, attach button handlers.
- * Requires elements with ids: add-annotation, annotator-btn-delete, add-annotation-result.
- */
 export async function init(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl, getStore } = config;
   console.log('[Annotator] Init; root:', ROOT);
@@ -41,10 +28,6 @@ export async function init(config: AnnotatorConfig): Promise<void> {
   wireButtons(ROOT, config);
 }
 
-/**
- * Wire button event handlers (Anchor, Delete).
- * Separate function so we only wire once, even if init() is called multiple times.
- */
 function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
   const addBtn = document.getElementById('add-annotation');
   const deleteBtn = document.getElementById('annotator-btn-delete');
@@ -55,11 +38,9 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
     return;
   }
 
-  // Already wired? Skip (guard against double-init)
   if ((addBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired) return;
   (addBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired = true;
 
-  // --- Anchor button: highlight selection ---
   addBtn.addEventListener('click', async () => {
     addResult.textContent = '';
     const sel = window.getSelection();
@@ -87,7 +68,6 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
     }
   });
 
-  // --- Click highlight to select it ---
   ROOT.addEventListener('click', (e) => {
     const el = (e.target as Node) instanceof Element ? (e.target as Element) : null;
     const highlightEl = el?.closest?.('.annotator-highlight');
@@ -97,7 +77,6 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
     }
   });
 
-  // --- Delete button: remove selected highlight ---
   deleteBtn.addEventListener('click', async () => {
     if (!selectedAnnotationId) {
       addResult.textContent = 'Click a highlight first, then delete.';
@@ -117,10 +96,6 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
   });
 }
 
-/**
- * Re-run load-and-draw only (no button handlers). Clears existing highlights first.
- * Use from the extension after a delay or on DOM mutations so dynamic content gets highlighted.
- */
 export async function reattachHighlights(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl, getStore } = config;
   Annotation.configure({ getStore, getPageUrl });
