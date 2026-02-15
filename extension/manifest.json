@@ -4,10 +4,11 @@
   "version": "0.1.0",
   "description": "Highlight and annotate any webpage with persistent anchors (Range, TextPosition, TextQuote).",
   "permissions": ["storage","sidePanel"],
-  "side_panel":{"default_path":"sidepanel.html"},"content_scripts": [
+  "side_panel":{"default_path":"sidepanel.html"},  "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": ["content.js"],
+      "css": ["style.css"],
       "run_at": "document_idle"
     }
   ]

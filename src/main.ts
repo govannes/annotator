@@ -46,11 +46,7 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
       return;
     }
     try {
-      const annotation = await annotate({
-        range,
-        root: ROOT,
-        pageUrl: config.getPageUrl(),
-      });
+      const annotation = await annotate(range, ROOT, config.getPageUrl());
       addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
       console.log('[Annotator] Annotation saved:', annotation);
     } catch (e) {

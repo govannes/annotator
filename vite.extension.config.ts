@@ -1,6 +1,7 @@
 import { resolve, dirname } from 'path';
 import { defineConfig } from 'vite';
 import { copyFileSync, mkdirSync, existsSync } from 'fs';
+import tailwindcss from '@tailwindcss/vite';
 
 const outDir = 'dist-extension';
 
@@ -28,6 +29,7 @@ export default defineConfig({
     target: 'esnext',
   },
   plugins: [
+    tailwindcss(),
     {
       name: 'copy-extension-assets',
       closeBundle() {

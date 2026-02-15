@@ -2,32 +2,23 @@ import {
   DomAnchorer,
   build,
   clearHighlights,
-  createAnnotationHighlighter,
   highlightRange,
   loadAnnotations,
   saveAnnotation,
 } from './core';
+import { AnnotationHighlighter } from './core/annotation-highlighter';
 import type { Annotation } from './types';
 
-export interface AnnotatePayload {
-  range: Range;
-  root: Element;
-  pageUrl: string;
-  body?: { type: string; value: string };
-}
-
-export interface LoadResult {
+interface LoadResult {
   annotations: Annotation[];
   anchored: number;
   total: number;
 }
 
-export async function annotate(payload: AnnotatePayload): Promise<Annotation> {
-  const { range, root, pageUrl, body } = payload;
+export async function annotate(range: Range, root: Element, pageUrl: string, body?: { type: string; value: string }): Promise<Annotation> {
 
-  const anchorer = new DomAnchorer();
   const { text: docText, segments } = build(root);
-  const selector = anchorer.buildSelectors(range, root, segments, docText);
+  const selector = new DomAnchorer().buildSelectors(range, root, segments, docText);
 
   const annotation: Annotation = {
     id: crypto.randomUUID(),
@@ -53,10 +44,7 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
   let { text: currentText, segments: currentSegments } = build(root);
 
   for (const ann of annotations) {
-    const highlighter = createAnnotationHighlighter(ann, root, {
-      text: currentText,
-      segments: currentSegments,
-    });
+    const highlighter = new AnnotationHighlighter(ann, root, currentText, currentSegments);
     const result = highlighter.resolveRange();
     if (result.ok) {
       const didHighlight = highlighter.highlightRange(result.range);

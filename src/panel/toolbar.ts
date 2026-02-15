@@ -6,69 +6,24 @@ import {
 } from './constants';
 import { ICONS } from './icons';
 
+const BTN = 'w-9 h-9 p-0 border-none rounded-lg bg-transparent text-[#ccc] cursor-pointer inline-flex items-center justify-center hover:bg-[#333] hover:text-[#eee] active:bg-[#444] [&>svg]:w-5 [&>svg]:h-5';
+const BTN_HIGHLIGHT = `${BTN} text-[#8bc34a] hover:bg-[#2d4a1a] hover:text-[#a5d6a7]`;
+
 function buildToolbarHTML(): string {
   return `
-    <div id="${TOOLBAR_ID}" style="
-      position: fixed;
-      left: 50%;
-      bottom: 16px;
-      z-index: 2147483647;
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 13px;
-      transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)));
-      display: flex;
-      align-items: center;
-      gap: 0;
-      background: #1a1a1a;
-      color: #eee;
-      padding: 6px 4px 6px 2px;
-      border-radius: 12px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
-    ">
-      <div id="${TOOLBAR_DRAG_HANDLE_ID}" style="
-        cursor: grab;
-        padding: 8px 6px;
-        margin-right: 2px;
-        border-radius: 8px;
-        color: #888;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        user-select: none;
-      " title="Drag to move toolbar">${ICONS.moreHoriz}</div>
-      <div style="
-        display: flex;
-        align-items: center;
-        gap: 2px;
-        padding-left: 4px;
-        border-left: 1px solid #333;
-      ">
-        <button type="button" id="add-annotation" class="annotator-toolbar-btn annotator-toolbar-btn-highlight" title="Highlight selection">${ICONS.highlight}</button>
-        <button type="button" id="annotator-btn-showdb" class="annotator-toolbar-btn" title="Show annotations DB">${ICONS.database}</button>
-        <button type="button" id="annotator-btn-delete" class="annotator-toolbar-btn" title="Delete selected highlight">${ICONS.delete}</button>
+    <div id="${TOOLBAR_ID}"
+      class="fixed left-1/2 bottom-4 z-[2147483647] font-sans text-[13px] flex items-center bg-[#1a1a1a] text-[#eee] py-1.5 pl-0.5 pr-1 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+      style="transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)))">
+      <div id="${TOOLBAR_DRAG_HANDLE_ID}"
+        class="cursor-grab py-2 px-1.5 mr-0.5 rounded-lg text-[#888] flex items-center justify-center select-none"
+        title="Drag to move toolbar">${ICONS.dragIndicator}</div>
+      <div class="flex items-center gap-0.5 pl-1 border-l border-[#333]">
+        <button type="button" id="add-annotation" class="${BTN_HIGHLIGHT}" title="Highlight selection">${ICONS.highlight}</button>
+        <button type="button" id="annotator-btn-showdb" class="${BTN}" title="Show annotations DB">${ICONS.database}</button>
+        <button type="button" id="annotator-btn-delete" class="${BTN}" title="Delete selected highlight">${ICONS.delete}</button>
       </div>
     </div>
-    <style>
-      .annotator-toolbar-btn {
-        width: 36px;
-        height: 36px;
-        padding: 0;
-        border: none;
-        border-radius: 8px;
-        background: transparent;
-        color: #ccc;
-        cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-      }
-      .annotator-toolbar-btn:hover { background: #333; color: #eee; }
-      .annotator-toolbar-btn:active { background: #444; }
-      .annotator-toolbar-btn svg { width: 20px; height: 20px; }
-      .annotator-toolbar-btn-highlight { color: #8bc34a; }
-      .annotator-toolbar-btn-highlight:hover { background: #2d4a1a; color: #a5d6a7; }
-    </style>
-    <div id="add-annotation-result" style="position:fixed;left:-9999px;pointer-events:none;" aria-hidden="true"></div>
+    <div id="add-annotation-result" class="fixed -left-[9999px] pointer-events-none" aria-hidden="true"></div>
   `;
 }
 

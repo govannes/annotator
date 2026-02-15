@@ -4,7 +4,5 @@ export {
   highlightRange,
   clearHighlights,
 } from './highlighters/dom-highlighter';
-export {
-  createAnnotationHighlighter,
-} from './annotation-highlighter';
+
 export { loadAnnotations, saveAnnotation, deleteAnnotation } from './storage';

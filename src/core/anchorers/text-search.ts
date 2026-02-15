@@ -16,7 +16,7 @@ export function findAllExactMatches(
   return matches;
 }
 
-export interface PickBestMatchOptions {
+interface PickBestMatchOptions {
   positionHint?: number;
   prefix?: string;
   suffix?: string;

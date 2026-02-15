@@ -1,3 +1,4 @@
+import './style.css';
 import { init, reattachHighlights } from './main';
 import { PANEL_ID, DB_OVERLAY_ID, injectToolbar, setupShowDbButton } from './panel';
 
