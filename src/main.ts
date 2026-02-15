@@ -1,24 +1,20 @@
 import { Annotation } from './annotation';
-import { getHighlightAnnotationId } from './core';
-import type { AnnotationStore } from './api';
+import { deleteAnnotation, getHighlightAnnotationId } from './core';
 
 export interface AnnotatorConfig {
     root: Element;
     getPageUrl: () => string;
-    getStore: () => Promise<AnnotationStore>;
 }
 
 const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
-let store: AnnotationStore | null = null;
 let selectedAnnotationId: string | null = null;
 
 export async function init(config: AnnotatorConfig): Promise<void> {
-  const { root: ROOT, getPageUrl, getStore } = config;
+  const { root: ROOT, getPageUrl } = config;
   console.log('[Annotator] Init; root:', ROOT);
 
-  Annotation.configure({ getStore, getPageUrl });
-  store = await getStore();
+  Annotation.configure({ getPageUrl });
 
   const pageUrl = getPageUrl();
   const loadResult = await Annotation.load(pageUrl).into(ROOT);
@@ -82,9 +78,8 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
       addResult.textContent = 'Click a highlight first, then delete.';
       return;
     }
-    if (!store) return;
     try {
-      await store.delete(selectedAnnotationId);
+      await deleteAnnotation(selectedAnnotationId);
       console.log('[Annotator] Deleted:', selectedAnnotationId.slice(0, 8));
       selectedAnnotationId = null;
       await reattachHighlights(config);
@@ -97,8 +92,8 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
 }
 
 export async function reattachHighlights(config: AnnotatorConfig): Promise<void> {
-  const { root: ROOT, getPageUrl, getStore } = config;
-  Annotation.configure({ getStore, getPageUrl });
+  const { root: ROOT, getPageUrl } = config;
+  Annotation.configure({ getPageUrl });
   const pageUrl = getPageUrl();
   const result = await Annotation.load(pageUrl).into(ROOT);
   if (result.total > 0) {

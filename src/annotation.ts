@@ -4,8 +4,9 @@ import {
   clearHighlights,
   createAnnotationHighlighter,
   highlightRange,
+  loadAnnotations,
+  saveAnnotation,
 } from './core';
-import type { AnnotationStore } from './api';
 import type { Annotation as AnnotationType } from './types';
 
 export interface AnnotatePayload {
@@ -21,7 +22,6 @@ export interface AnnotatePayload {
 export interface LoadOptions {
     pageUrl: string;
     root: Element;
-    store?: AnnotationStore;
 }
 
 export interface LoadResult {
@@ -31,17 +31,14 @@ export interface LoadResult {
 }
 
 export interface LoadBuilder {
-  into(root: Element, store?: AnnotationStore): Promise<LoadResult>;
+  into(root: Element): Promise<LoadResult>;
 }
 
-let configuredStore: (() => Promise<AnnotationStore>) | null = null;
 let configuredGetPageUrl: (() => string) | null = null;
 
 export function configure(config: {
-  getStore: () => Promise<AnnotationStore>;
   getPageUrl: () => string;
 }): void {
-  configuredStore = config.getStore;
   configuredGetPageUrl = config.getPageUrl;
 }
 
@@ -57,8 +54,8 @@ export function load(
   if (typeof pageUrlOrOptions === 'string') {
     const pageUrl = pageUrlOrOptions;
     return {
-      async into(root: Element, store?: AnnotationStore): Promise<LoadResult> {
-        return runLoad({ pageUrl, root, store });
+      async into(root: Element): Promise<LoadResult> {
+        return runLoad({ pageUrl, root });
       },
     };
   }
@@ -66,12 +63,7 @@ export function load(
 }
 
 async function runLoad(options: LoadOptions): Promise<LoadResult> {
-  const store = options.store ?? (configuredStore ? await configuredStore() : null);
-  if (!store) {
-    throw new Error('Annotation.load: no store. Pass store in options or call Annotation.configure() first.');
-  }
-
-  const all = await store.load();
+  const all = await loadAnnotations();
   const pageUrl = options.pageUrl;
   const root = options.root;
 
@@ -104,7 +96,7 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
 export class AnnotationBuilder {
   constructor(private readonly payload: AnnotatePayload) {}
 
-    async done(store?: AnnotationStore): Promise<AnnotationType> {
+    async done(): Promise<AnnotationType> {
     const { range, root, pageUrl: payloadPageUrl, source: payloadSource, highlightType, highlightColor, body } = this.payload;
     const pageUrl = payloadPageUrl ?? (configuredGetPageUrl?.() ?? (typeof window !== 'undefined' ? window.location.href : ''));
     // Barebone: source is always pageUrl (no content-block scoping)
@@ -127,15 +119,7 @@ export class AnnotationBuilder {
       body,
     };
 
-    const storeToUse = store ?? (configuredStore ? await configuredStore() : null);
-    if (storeToUse) {
-      await storeToUse.save(annotation);
-      highlightRange(range, annotation.id, {
-        type: annotation.highlightType,
-        color: annotation.highlightColor,
-      });
-      return annotation;
-    }
+    await saveAnnotation(annotation);
 
     highlightRange(range, annotation.id, {
       type: annotation.highlightType,

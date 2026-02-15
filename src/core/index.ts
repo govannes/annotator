@@ -46,3 +46,6 @@ export {
   AnnotationHighlighter,
   type HighlighterContext,
 } from './annotation-highlighter';
+
+export { loadAnnotations, saveAnnotation, deleteAnnotation } from './storage';
+
