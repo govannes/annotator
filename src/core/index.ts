@@ -1,34 +1,56 @@
 /**
- * Core annotator: highlighting, selector mapping, anchoring.
+ * Core annotator: selectors, highlighters, anchorers, text mapping.
  * No backend — pure DOM and selector logic.
  */
 
-export {
-  highlightRange,
-  clearHighlights,
-  getHighlightAnnotationId,
-  isHighlightElement,
-  type HighlightOptions,
-} from './highlighter';
+// --- Selectors ---
+export type {
+  Mapper,
+  TextMapperResult,
+  RangeSelectorBuilder,
+  TextPositionSelectorBuilder,
+  TextQuoteSelectorBuilder,
+} from './selectors';
 
 export {
-  toRangeSelector,
-  toTextPositionSelector,
-  toTextQuoteSelector,
+  DomRangeSelectorBuilder,
+  DomTextPositionSelectorBuilder,
+  DomTextQuoteSelectorBuilder,
   nodeFromXPath,
   offsetInElementToDomPosition,
 } from './selectors';
 
-export { build, type Mapper, type DomTextMapperResult } from './dom-text-mapper';
+// --- Highlighters ---
+export type { Highlighter, HighlightStyle } from './highlighters';
 
 export {
-  anchorAnnotation,
-  anchorFromRangeSelector,
-  anchorFromTextPositionSelector,
+  DomHighlighter,
+  highlightRange,
+  clearHighlights,
+  getHighlightAnnotationId,
+  isHighlightElement,
+} from './highlighters';
+
+// --- Anchorers ---
+export type {
+  AnchorerInterface,
+  AnchorContext,
+  BuildSelectorsOptions,
+} from './anchorers';
+
+export {
+  DomAnchorer,
+  TEXT_QUOTE_CONTEXT_LENGTH,
+  findAllExactMatches,
+  pickBestMatch,
   anchorFromQuoteContext,
   anchorFromQuoteOnly,
-} from './anchoring';
+} from './anchorers';
 
+// --- Text mapper ---
+export { build, type DomTextMapperResult } from './dom-text-mapper';
+
+// --- Content URL ---
 export {
   getContentRoots,
   getContentUrlFromRange,
@@ -36,15 +58,9 @@ export {
   isContentScopedPage,
 } from './content-url';
 
+// --- Annotation highlighter pipeline ---
 export {
   createAnnotationHighlighter,
   AnnotationHighlighter,
   type HighlighterContext,
 } from './annotation-highlighter';
-
-export {
-  Anchorer,
-  TEXT_QUOTE_CONTEXT_LENGTH,
-  type AnchorContext,
-  type BuildSelectorsOptions,
-} from './anchorer';

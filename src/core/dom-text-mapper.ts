@@ -6,6 +6,7 @@
 
 import { parse, NodeType } from 'node-html-parser';
 import type { HTMLElement as ParsedHTMLElement, Node as ParsedNode } from 'node-html-parser';
+import type { Mapper, TextMapperResult } from './selectors';
 
 /** Segment: character range [start, end) in document text and the corresponding DOM Text node. */
 interface Segment {
@@ -32,7 +33,7 @@ export function getDocumentText(root: Node): string {
  * - Parsed tree (node-html-parser) gives text and segment boundaries.
  * - Real DOM walk gives the corresponding Text nodes; we zip by document order.
  */
-export function build(root: Node): DomTextMapperResult {
+export function build(root: Node): TextMapperResult {
   const html = serializeRoot(root);
   const parsed = parse(html);
 
@@ -109,15 +110,8 @@ export function build(root: Node): DomTextMapperResult {
   return { text: finalText, mapper };
 }
 
-export interface Mapper {
-  rangeToOffsets(domRange: Range): { start: number; end: number };
-  offsetsToRange(start: number, end: number): Range | null;
-}
-
-export interface DomTextMapperResult {
-  text: string;
-  mapper: Mapper;
-}
+// DomTextMapperResult is an alias for TextMapperResult (backward compatibility).
+export type DomTextMapperResult = TextMapperResult;
 
 // --- Helpers ---
 

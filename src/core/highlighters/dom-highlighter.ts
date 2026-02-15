@@ -1,0 +1,189 @@
+/**
+ * DOM Highlighter: wraps text runs in <span class="annotator-highlight">.
+ *
+ * Only text is highlighted — each run of text in the range gets its own span
+ * so that structure (tables, lists, etc.) is never broken.
+ */
+
+import type { Highlighter, HighlightStyle } from './types';
+
+const HIGHLIGHT_CLASS = 'annotator-highlight';
+
+// ---------------------------------------------------------------------------
+// DomHighlighter
+// ---------------------------------------------------------------------------
+
+export class DomHighlighter implements Highlighter {
+  draw(range: Range, annotationId: string, style: HighlightStyle = {}): boolean {
+    return highlightRange(range, annotationId, style);
+  }
+
+  clear(root: Element): void {
+    clearHighlights(root);
+  }
+
+  getAnnotationId(element: Element): string | null {
+    return getHighlightAnnotationId(element);
+  }
+
+  isHighlight(element: Element): boolean {
+    return isHighlightElement(element);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Standalone functions (kept for backward compatibility and direct use)
+// ---------------------------------------------------------------------------
+
+/**
+ * Highlight the given range without breaking DOM structure.
+ * Returns true if at least one highlight was applied.
+ */
+export function highlightRange(
+  range: Range,
+  annotationId: string,
+  style: HighlightStyle = {}
+): boolean {
+  if (range.collapsed) return false;
+  const root = range.commonAncestorContainer;
+  const walkRoot: Node =
+    root.nodeType === Node.TEXT_NODE ? (root.parentNode ?? root) : root;
+  const { textSegments } = collectHighlightRanges(range, walkRoot);
+
+  if (textSegments.length === 0) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[Annotator] highlightRange: no text segments in range', range.toString().slice(0, 80));
+    }
+    return false;
+  }
+
+  let firstSpan: HTMLSpanElement | undefined;
+  for (let i = textSegments.length - 1; i >= 0; i--) {
+    const span = wrapTextSegment(textSegments[i]!, annotationId, style);
+    if (span && firstSpan === undefined) firstSpan = span;
+  }
+  return firstSpan !== undefined;
+}
+
+export function getHighlightAnnotationId(span: Element): string | null {
+  return span.getAttribute('data-annotation-id');
+}
+
+export function isHighlightElement(el: Element): boolean {
+  return el.classList.contains(HIGHLIGHT_CLASS);
+}
+
+/**
+ * Remove all annotator highlights from the given root (unwrap spans).
+ * Use before re-running load-and-draw so highlights are not duplicated.
+ */
+export function clearHighlights(root: Element): void {
+  const list = root.querySelectorAll(`.${HIGHLIGHT_CLASS}`);
+  list.forEach((el) => {
+    if (el.tagName === 'SPAN') {
+      const parent = el.parentNode;
+      if (parent) {
+        while (el.firstChild) parent.insertBefore(el.firstChild, el);
+        parent.removeChild(el);
+      }
+    } else {
+      el.classList.remove(HIGHLIGHT_CLASS);
+      el.removeAttribute('data-annotation-id');
+      el.removeAttribute('data-highlight-type');
+      (el as HTMLElement).style.removeProperty('background-color');
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+interface TextSegment {
+  node: Text;
+  start: number;
+  end: number;
+}
+
+/** Returns the intersection of range with a text node as offsets, or null if none. */
+function getTextNodeSlice(textNode: Text, range: Range): { start: number; end: number } | null {
+  if (!range.intersectsNode(textNode)) return null;
+  const nodeRange = document.createRange();
+  nodeRange.selectNodeContents(textNode);
+  const startCmp = range.compareBoundaryPoints(Range.START_TO_START, nodeRange);
+  const endCmp = range.compareBoundaryPoints(Range.END_TO_END, nodeRange);
+  if (startCmp >= 0 && endCmp <= 0) {
+    return { start: range.startOffset, end: range.endOffset };
+  }
+  const intersectionStart = startCmp <= 0 ? 0 : range.startOffset;
+  const intersectionEnd = endCmp >= 0 ? textNode.length : range.endOffset;
+  if (intersectionStart >= intersectionEnd) return null;
+  return { start: intersectionStart, end: intersectionEnd };
+}
+
+/** True if the range fully contains the element. */
+function rangeFullyContainsElement(range: Range, element: Element): boolean {
+  const elRange = document.createRange();
+  elRange.selectNodeContents(element);
+  return (
+    range.compareBoundaryPoints(Range.START_TO_START, elRange) <= 0 &&
+    range.compareBoundaryPoints(Range.END_TO_END, elRange) >= 0
+  );
+}
+
+function collectHighlightRanges(
+  range: Range,
+  root: Node
+): { textSegments: TextSegment[] } {
+  const textSegments: TextSegment[] = [];
+
+  function walk(node: Node | null): void {
+    if (!node || !range.intersectsNode(node)) return;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const slice = getTextNodeSlice(node as Text, range);
+      if (slice) {
+        const text = (node as Text).data.slice(slice.start, slice.end);
+        if (text.trim().length > 0) textSegments.push({ node: node as Text, ...slice });
+      }
+      return;
+    }
+    if (node.nodeType === Node.ELEMENT_NODE) {
+      const el = node as Element;
+      if (rangeFullyContainsElement(range, el)) {
+        for (let i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i] ?? null);
+        return;
+      }
+      for (let i = 0; i < node.childNodes.length; i++) walk(node.childNodes[i] ?? null);
+    }
+  }
+
+  walk(root);
+  return { textSegments };
+}
+
+function wrapTextSegment(
+  segment: TextSegment,
+  annotationId: string,
+  style: HighlightStyle
+): HTMLSpanElement | null {
+  const { node, start, end } = segment;
+  const midText = node.data.slice(start, end);
+  if (midText.trim().length === 0) return null;
+  const parent = node.parentNode;
+  if (!parent) return null;
+  const span = document.createElement('span');
+  span.className = HIGHLIGHT_CLASS;
+  span.setAttribute('data-annotation-id', annotationId);
+  if (style.type) span.setAttribute('data-highlight-type', style.type);
+  if (style.color) span.style.setProperty('background-color', style.color, 'important');
+
+  const beforeText = node.data.slice(0, start);
+  const afterText = node.data.slice(end);
+
+  if (start > 0) parent.insertBefore(document.createTextNode(beforeText), node);
+  span.appendChild(document.createTextNode(midText));
+  parent.insertBefore(span, node);
+  if (node.length - end > 0) parent.insertBefore(document.createTextNode(afterText), node);
+  parent.removeChild(node);
+  return span;
+}

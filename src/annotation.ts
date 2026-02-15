@@ -10,7 +10,7 @@
  */
 
 import {
-  Anchorer,
+  DomAnchorer,
   build,
   clearHighlights,
   createAnnotationHighlighter,
@@ -223,8 +223,9 @@ export class AnnotationBuilder {
     const pageUrl = payloadPageUrl ?? (configuredGetPageUrl?.() ?? (typeof window !== 'undefined' ? window.location.href : ''));
     const source = payloadSource ?? getContentUrlFromRange(range, root) ?? pageUrl;
 
+    const anchorer = new DomAnchorer();
     const { text: docText, mapper } = build(root);
-    const selector = Anchorer.buildSelectorsFromRange(range, root, mapper, docText);
+    const selector = anchorer.buildSelectors(range, root, mapper, docText);
 
     const annotation: AnnotationType = {
       id: crypto.randomUUID(),
