@@ -50,13 +50,8 @@ export {
 // --- Text mapper ---
 export { build, type DomTextMapperResult } from './dom-text-mapper';
 
-// --- Content URL ---
-export {
-  getContentRoots,
-  getContentUrlFromRange,
-  toAbsoluteUrl,
-  isContentScopedPage,
-} from './content-url';
+// --- Content URL (kept for isContentScopedPage, but functions unused in barebone) ---
+export { isContentScopedPage } from './content-url';
 
 // --- Annotation highlighter pipeline ---
 export {

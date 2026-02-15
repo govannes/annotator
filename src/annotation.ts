@@ -14,8 +14,6 @@ import {
   build,
   clearHighlights,
   createAnnotationHighlighter,
-  getContentRoots,
-  getContentUrlFromRange,
   highlightRange,
 } from './core';
 import type { AnnotationStore } from './api';
@@ -117,20 +115,16 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
   const all = await store.load();
   const pageUrl = options.pageUrl;
   const root = options.root;
-  const contentRoots = getContentRoots(root);
-  const contentUrlToRoot = new Map(contentRoots.map((r) => [r.contentUrl, r.blockRoot]));
-  const pageLevel = all.filter((a) => a.target.source === pageUrl);
-  const contentLevel = all.filter(
-    (a) => a.target.source !== pageUrl && contentUrlToRoot.has(a.target.source)
-  );
-  const annotations = [...pageLevel, ...contentLevel];
+
+  // Barebone: page-level only (no content-block scoping)
+  const annotations = all.filter((a) => a.target.source === pageUrl);
 
   clearHighlights(root);
   let anchored = 0;
   let { text: currentText, mapper: currentMapper } = build(root);
 
-  // Page-level: one root, shared text/mapper; rebuild after each highlight so DOM stays in sync
-  for (const ann of pageLevel) {
+  // Anchor each annotation and rebuild mapper after each highlight (keeps DOM in sync)
+  for (const ann of annotations) {
     const highlighter = createAnnotationHighlighter(ann, root, {
       text: currentText,
       mapper: currentMapper,
@@ -143,66 +137,6 @@ async function runLoad(options: LoadOptions): Promise<LoadResult> {
         const next = build(root);
         currentText = next.text;
         currentMapper = next.mapper;
-      }
-    }
-  }
-
-  // Content-level: try block root first, fall back to page root
-  for (const ann of contentLevel) {
-    const blockRoot = contentUrlToRoot.get(ann.target.source);
-    const suffix = ann.target.selector?.textQuote?.suffix?.trim();
-    const requireSuffixMatch = Boolean(suffix && suffix.length > 2);
-
-    let result: import('./types').AnchorResult;
-    let highlighter: import('./core').AnnotationHighlighter;
-    let highlightRoot: Element;
-
-    if (blockRoot && root !== blockRoot) {
-      const { text: blockText, mapper: blockMapper } = build(blockRoot);
-      highlighter = createAnnotationHighlighter(ann, blockRoot, {
-        text: blockText,
-        mapper: blockMapper,
-      });
-      result = highlighter.resolveRange();
-      highlightRoot = blockRoot as Element;
-      if (result.ok && requireSuffixMatch && suffix) {
-        try {
-          const off = blockMapper.rangeToOffsets(result.range);
-          const suffixHead = suffix.slice(0, Math.min(8, suffix.length));
-          const after = blockText.slice(off.end, off.end + suffixHead.length);
-          if (!after.startsWith(suffixHead)) {
-            result = { ok: false, error: 'block match failed suffix check' };
-          }
-        } catch {
-          result = { ok: false, error: 'block rangeToOffsets failed' };
-        }
-      }
-      if (!result.ok) {
-        highlighter = createAnnotationHighlighter(ann, root, {
-          text: currentText,
-          mapper: currentMapper,
-        });
-        result = highlighter.resolveRange();
-        highlightRoot = root;
-      }
-    } else {
-      highlighter = createAnnotationHighlighter(ann, root, {
-        text: currentText,
-        mapper: currentMapper,
-      });
-      result = highlighter.resolveRange();
-      highlightRoot = root;
-    }
-
-    if (result.ok) {
-      const didHighlight = highlighter.highlightRange(result.range);
-      if (didHighlight) {
-        anchored++;
-        const next = build(highlightRoot);
-        if (highlightRoot === root) {
-          currentText = next.text;
-          currentMapper = next.mapper;
-        }
       }
     }
   }
@@ -221,7 +155,8 @@ export class AnnotationBuilder {
   async done(store?: AnnotationStore): Promise<AnnotationType> {
     const { range, root, pageUrl: payloadPageUrl, source: payloadSource, highlightType, highlightColor, body } = this.payload;
     const pageUrl = payloadPageUrl ?? (configuredGetPageUrl?.() ?? (typeof window !== 'undefined' ? window.location.href : ''));
-    const source = payloadSource ?? getContentUrlFromRange(range, root) ?? pageUrl;
+    // Barebone: source is always pageUrl (no content-block scoping)
+    const source = payloadSource ?? pageUrl;
 
     const anchorer = new DomAnchorer();
     const { text: docText, mapper } = build(root);
