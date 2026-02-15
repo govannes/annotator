@@ -26,8 +26,8 @@ export async function annotate(payload: AnnotatePayload): Promise<Annotation> {
   const { range, root, pageUrl, body } = payload;
 
   const anchorer = new DomAnchorer();
-  const { text: docText, mapper } = build(root);
-  const selector = anchorer.buildSelectors(range, root, mapper, docText);
+  const { text: docText, segments } = build(root);
+  const selector = anchorer.buildSelectors(range, root, segments, docText);
 
   const annotation: Annotation = {
     id: crypto.randomUUID(),
@@ -50,12 +50,12 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
 
   clearHighlights(root);
   let anchored = 0;
-  let { text: currentText, mapper: currentMapper } = build(root);
+  let { text: currentText, segments: currentSegments } = build(root);
 
   for (const ann of annotations) {
     const highlighter = createAnnotationHighlighter(ann, root, {
       text: currentText,
-      mapper: currentMapper,
+      segments: currentSegments,
     });
     const result = highlighter.resolveRange();
     if (result.ok) {
@@ -64,7 +64,7 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
         anchored++;
         const next = build(root);
         currentText = next.text;
-        currentMapper = next.mapper;
+        currentSegments = next.segments;
       }
     }
   }

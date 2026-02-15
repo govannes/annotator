@@ -1,28 +1,23 @@
-import type { Mapper } from './selectors/types';
 import { DomAnchorer } from './anchorers/dom-anchorer';
 import { highlightRange } from './highlighters/dom-highlighter';
 import type { Annotation, AnchorResult } from '../types';
-
-export interface HighlighterContext {
-  text: string;
-  mapper: Mapper;
-}
+import { Segment } from './dom-text-mapper';
 
 export function createAnnotationHighlighter(
   annotation: Annotation,
   root: Node,
-  context: HighlighterContext
+  context: { text: string; segments: Segment[] }
 ): AnnotationHighlighter {
   return new AnnotationHighlighter(annotation, root, context);
 }
 
-export class AnnotationHighlighter {
+class AnnotationHighlighter {
   private readonly anchorer = new DomAnchorer();
 
   constructor(
     private readonly annotation: Annotation,
     private readonly root: Node,
-    private readonly context: HighlighterContext
+    private readonly context: { text: string; segments: Segment[] }
   ) {}
 
     getTargetText(): string {
@@ -31,7 +26,7 @@ export class AnnotationHighlighter {
   }
 
     resolveRange(): AnchorResult {
-    return this.anchorer.anchor(this.annotation, this.root, this.context.text, this.context.mapper);
+    return this.anchorer.anchor(this.annotation, this.root, this.context.text, this.context.segments);
   }
 
     highlightRange(range: Range): boolean {

@@ -1,27 +1,45 @@
 import { parse, NodeType } from 'node-html-parser';
 import type { HTMLElement as ParsedHTMLElement, Node as ParsedNode } from 'node-html-parser';
-import type { Mapper, TextMapperResult } from './selectors/types';
 
-interface Segment {
+export interface Segment {
   start: number;
   end: number;
   node: Text;
 }
 
-export function getDocumentText(root: Node): string {
-  const html = serializeRoot(root);
-  const parsed = parse(html);
-  const parts: string[] = [];
-  walkParsedText(parsed, (text) => parts.push(text));
-  return parts.join('');
+export function mapperRangeToOffsets(domRange: Range, segments: Segment[]): { start: number; end: number } {
+  const startPos = normalizeToTextPosition(domRange.startContainer, domRange.startOffset, 'start');
+  const endPos = normalizeToTextPosition(domRange.endContainer, domRange.endOffset, 'end');
+  if (!startPos || !endPos) return { start: 0, end: 0 };
+  const start = positionToOffset(segments, startPos.node, startPos.offset, 'start');
+  const end = positionToOffset(segments, endPos.node, endPos.offset, 'end');
+  if (start == null || end == null) return { start: 0, end: 0 };
+  return { start, end };
 }
 
-/**
- * Step 2: Build document text and bidirectional mapper (DOM ↔ character offsets).
- * - Parsed tree (node-html-parser) gives text and segment boundaries.
- * - Real DOM walk gives the corresponding Text nodes; we zip by document order.
- */
-export function build(root: Node): TextMapperResult {
+export function mapperOffsetsToRange(start: number, end: number, segments: Segment[]): Range | null {
+  const range = document.createRange();
+  let startSet = false;
+  let endSet = false;
+  for (const seg of segments) {
+    if (!startSet && start <= seg.end) {
+      const offset = Math.max(0, Math.min(start - seg.start, seg.node.length));
+      range.setStart(seg.node, offset);
+      startSet = true;
+    }
+    if (!endSet && end <= seg.end) {
+      const offset = Math.max(0, Math.min(end - seg.start, seg.node.length));
+      range.setEnd(seg.node, offset);
+      endSet = true;
+      break;
+    }
+  }
+  if (!startSet || !endSet) return null;
+  return range;
+}
+
+
+export function build(root: Node): { text: string; segments: Segment[] } {
   const html = serializeRoot(root);
   const parsed = parse(html);
 
@@ -63,42 +81,8 @@ export function build(root: Node): TextMapperResult {
     finalText = parts.join('');
   }
 
-  const mapper: Mapper = {
-    rangeToOffsets(domRange: Range): { start: number; end: number } {
-      const startPos = normalizeToTextPosition(domRange.startContainer, domRange.startOffset, 'start');
-      const endPos = normalizeToTextPosition(domRange.endContainer, domRange.endOffset, 'end');
-      if (!startPos || !endPos) return { start: 0, end: 0 };
-      const start = positionToOffset(segments, startPos.node, startPos.offset, 'start');
-      const end = positionToOffset(segments, endPos.node, endPos.offset, 'end');
-      if (start == null || end == null) return { start: 0, end: 0 };
-      return { start, end };
-    },
-    offsetsToRange(start: number, end: number): Range | null {
-      const range = document.createRange();
-      let startSet = false;
-      let endSet = false;
-      for (const seg of segments) {
-        if (!startSet && start <= seg.end) {
-          const offset = Math.max(0, Math.min(start - seg.start, seg.node.length));
-          range.setStart(seg.node, offset);
-          startSet = true;
-        }
-        if (!endSet && end <= seg.end) {
-          const offset = Math.max(0, Math.min(end - seg.start, seg.node.length));
-          range.setEnd(seg.node, offset);
-          endSet = true;
-          break;
-        }
-      }
-      if (!startSet || !endSet) return null;
-      return range;
-    },
-  };
-
-  return { text: finalText, mapper };
+  return { text: finalText, segments };
 }
-
-export type DomTextMapperResult = TextMapperResult;
 
 function serializeRoot(root: Node): string {
   if (root.nodeType === Node.DOCUMENT_NODE) {

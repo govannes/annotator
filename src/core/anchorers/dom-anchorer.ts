@@ -1,5 +1,5 @@
 import type { Annotation, Selector, AnchorResult, AnchoringStrategy } from '../../types';
-import type { Mapper } from '../selectors/types';
+import { mapperOffsetsToRange, mapperRangeToOffsets, Segment } from '../dom-text-mapper';
 import {
   buildFromRange,
   resolveFromRange,
@@ -21,14 +21,14 @@ export class DomAnchorer  {
   buildSelectors(
     range: Range,
     root: Node,
-    mapper: Mapper,
+    segments: Segment[],
     documentText: string,
   ): Selector {
     const rootEl = root.nodeType === Node.DOCUMENT_NODE ? (root as Document).body : (root as Element);
     if (!rootEl) throw new Error('DomAnchorer.buildSelectors: invalid root');
 
     const rangeParts = buildFromRange(range, rootEl);
-    const positionParts = buildFromTextPosition(range, mapper);
+    const positionParts = buildFromTextPosition(range, segments);
     const quoteParts = buildFromTextQuote(
       documentText,
       positionParts.startOffset!,
@@ -46,8 +46,11 @@ export class DomAnchorer  {
     };
   }
 
-  anchor(annotation: Annotation, root: Node, text: string, mapper: Mapper): AnchorResult {
+  anchor(annotation: Annotation, root: Node, text: string, segments: Segment[]): AnchorResult {
     const selector = annotation.selector;
+    if (!selector) {
+      return { ok: false, error: 'Annotation has no selector' };
+    }
     const expectedQuote = selector.exact?.trim() || undefined;
 
     // Strategy 1: Range selector (XPath + offsets)
@@ -55,7 +58,7 @@ export class DomAnchorer  {
       let range = resolveFromRange(selector, root, expectedQuote);
       if (range && !range.collapsed) {
         if (expectedQuote && text) {
-          range = this.disambiguateQuote(range, expectedQuote, text, mapper, selector);
+          range = this.disambiguateQuote(range, expectedQuote, text, segments, selector);
         }
         return { ok: true, range, strategy: 'range' as AnchoringStrategy };
       }
@@ -63,10 +66,10 @@ export class DomAnchorer  {
 
     // Strategy 2: Text position selector (character offsets)
     if (selector.startOffset != null && selector.endOffset != null) {
-      let range = resolveFromTextPosition(selector, mapper, expectedQuote);
+      let range = resolveFromTextPosition(selector, segments, expectedQuote);
       if (range && !range.collapsed) {
         if (expectedQuote && text) {
-          range = this.disambiguateQuote(range, expectedQuote, text, mapper, selector);
+          range = this.disambiguateQuote(range, expectedQuote, text, segments, selector);
         }
         return { ok: true, range, strategy: 'position' as AnchoringStrategy };
       }
@@ -81,7 +84,7 @@ export class DomAnchorer  {
         true
       );
       if (offsets) {
-        const range = mapper.offsetsToRange(offsets.start, offsets.end);
+        const range = mapperOffsetsToRange(offsets.start, offsets.end, segments);
         if (range && !range.collapsed) {
           return { ok: true, range, strategy: 'quote-context' as AnchoringStrategy };
         }
@@ -96,7 +99,7 @@ export class DomAnchorer  {
         suffix: selector.suffix,
       });
       if (offsets) {
-        const range = mapper.offsetsToRange(offsets.start, offsets.end);
+        const range = mapperOffsetsToRange(offsets.start, offsets.end, segments);
         if (range && !range.collapsed) {
           return { ok: true, range, strategy: 'quote-only' as AnchoringStrategy };
         }
@@ -109,11 +112,11 @@ export class DomAnchorer  {
     };
   }
 
-    private disambiguateQuote(
+  private disambiguateQuote(
     range: Range,
     expectedQuote: string,
     text: string,
-    mapper: Mapper,
+    segments: Segment[],
     selector: Selector
   ): Range {
     const matches = findAllExactMatches(text, expectedQuote);
@@ -122,7 +125,7 @@ export class DomAnchorer  {
     let rangeStart: number;
     let rangeEnd: number;
     try {
-      const off = mapper.rangeToOffsets(range);
+      const off = mapperRangeToOffsets(range, segments);
       rangeStart = off.start;
       rangeEnd = off.end;
     } catch {
@@ -136,6 +139,6 @@ export class DomAnchorer  {
     });
     if (!best || (best.start === rangeStart && best.end === rangeEnd)) return range;
 
-    return mapper.offsetsToRange(best.start, best.end) ?? range;
+    return mapperOffsetsToRange(best.start, best.end, segments) ?? range;
   }
 }

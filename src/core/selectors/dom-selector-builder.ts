@@ -1,9 +1,8 @@
 import type {
   Selector,
 } from '../../types';
-import type {
-  Mapper,
-} from './types';
+import { mapperOffsetsToRange, mapperRangeToOffsets, Segment } from '../dom-text-mapper';
+
 
 
 const TEXT_QUOTE_CONTEXT_LENGTH = 32;
@@ -51,13 +50,13 @@ export function resolveFromRange(selector: Selector, root: Node, expectedQuote?:
 }
 
 
-export function buildFromTextPosition(domRange: Range, mapper: Mapper): Partial<Selector> {
-  const { start, end } = mapper.rangeToOffsets(domRange);
+export function buildFromTextPosition(domRange: Range, segments: Segment[]): Partial<Selector> {
+  const { start, end } = mapperRangeToOffsets(domRange, segments);
   return { start: String(start), end: String(end), startOffset: start, endOffset: end };
 }
 
-export function resolveFromTextPosition(selector: Selector, mapper: Mapper, _expectedQuote?: string): Range | null {
-  return mapper.offsetsToRange(selector.startOffset, selector.endOffset);
+export function resolveFromTextPosition(selector: Selector, segments: Segment[], _expectedQuote?: string): Range | null {
+  return mapperOffsetsToRange(selector.startOffset, selector.endOffset, segments);
 }
 
 
@@ -73,7 +72,7 @@ export function buildFromTextQuote(
 }
 
 
-export function nodeFromXPath(root: Element, xpath: string): Element | null {
+function nodeFromXPath(root: Element, xpath: string): Element | null {
   const segments = xpath.split('/').filter(Boolean);
   let current: Element | null = root;
   for (const seg of segments) {
@@ -92,7 +91,7 @@ export function nodeFromXPath(root: Element, xpath: string): Element | null {
   return current;
 }
 
-export function offsetInElementToDomPosition(
+function offsetInElementToDomPosition(
   element: Element,
   charOffset: number
 ): { node: Text; offset: number } | null {
