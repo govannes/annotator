@@ -12,12 +12,7 @@ export function highlightRange(
     root.nodeType === Node.TEXT_NODE ? (root.parentNode ?? root) : root;
   const { textSegments } = collectHighlightRanges(range, walkRoot);
 
-  if (textSegments.length === 0) {
-    if (typeof console !== 'undefined' && console.warn) {
-      console.warn('[Annotator] highlightRange: no text segments in range', range.toString().slice(0, 80));
-    }
-    return false;
-  }
+  if (textSegments.length === 0) return false;
 
   let firstSpan: HTMLSpanElement | undefined;
   for (let i = textSegments.length - 1; i >= 0; i--) {

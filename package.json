@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
+    "dev:extension": "tsc && vite build --config vite.extension.config.ts --sourcemap --minify false",
     "build:extension": "tsc && vite build --config vite.extension.config.ts"
   },
   "devDependencies": {
