@@ -3,10 +3,6 @@
 import { DB_OVERLAY_ID } from './constants';
 import { loadAnnotations } from '../core';
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -14,10 +10,6 @@ function escapeHtml(s: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-// ---------------------------------------------------------------------------
-// Overlay
-// ---------------------------------------------------------------------------
 
 function buildOverlayElement(): HTMLDivElement {
   const overlay = document.createElement('div');
@@ -106,10 +98,6 @@ function buildAnnotationCard(ann: AnnotationCardData): HTMLDivElement {
   return card;
 }
 
-// ---------------------------------------------------------------------------
-// Click-outside handling
-// ---------------------------------------------------------------------------
-
 function addClickOutsideDismiss(
   overlay: HTMLElement,
   toggleButtonId: string,
@@ -135,7 +123,7 @@ export function setupShowDbButton(
   if (!btn) return;
 
   btn.addEventListener('click', async () => {
-    // Toggle: remove if already open.
+    
     const existing = document.getElementById(DB_OVERLAY_ID);
     if (existing) {
       existing.remove();

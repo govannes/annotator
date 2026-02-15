@@ -1,11 +1,3 @@
-/**
- * Toolbar injection, CSS, and drag-to-reposition behaviour.
- *
- * `injectToolbar()` creates the floating toolbar DOM and wires up the drag
- * handle. It returns `true` the first time it injects (i.e. the panel didn't
- * already exist), `false` otherwise.
- */
-
 import {
   PANEL_ID,
   TOOLBAR_ID,
@@ -13,10 +5,6 @@ import {
   TOOLBAR_OFFSET_STORAGE_KEY,
 } from './constants';
 import { ICONS } from './icons';
-
-// ---------------------------------------------------------------------------
-// Toolbar HTML + CSS
-// ---------------------------------------------------------------------------
 
 function buildToolbarHTML(): string {
   return `
@@ -84,10 +72,6 @@ function buildToolbarHTML(): string {
   `;
 }
 
-// ---------------------------------------------------------------------------
-// Drag-to-reposition
-// ---------------------------------------------------------------------------
-
 function setupToolbarDrag(): void {
   const toolbar = document.getElementById(TOOLBAR_ID);
   const handle = document.getElementById(TOOLBAR_DRAG_HANDLE_ID);
@@ -135,14 +119,6 @@ function setupToolbarDrag(): void {
   });
 }
 
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Inject the annotator toolbar into the page.
- * Returns `true` if a fresh toolbar was injected, `false` if one already exists.
- */
 export function injectToolbar(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
 

@@ -28,12 +28,10 @@ export interface AnnotationTarget {
 export interface Annotation {
   id: string;
   target: AnnotationTarget;
-    pageUrl?: string;
-    baseUrl?: string;
+  pageUrl?: string;
+  baseUrl?: string;
   body?: { type: string; value: string };
   created?: string;
-    highlightType?: string;
-    highlightColor?: string;
 }
 
 export type AnchoringStrategy =

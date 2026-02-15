@@ -1,6 +1,6 @@
 import { parse, NodeType } from 'node-html-parser';
 import type { HTMLElement as ParsedHTMLElement, Node as ParsedNode } from 'node-html-parser';
-import type { Mapper, TextMapperResult } from './selectors';
+import type { Mapper, TextMapperResult } from './selectors/types';
 
 interface Segment {
   start: number;

@@ -1,5 +1,3 @@
-/** Shared DOM element IDs and configuration constants for the annotator panel. */
-
 export const PANEL_ID = 'annotator-extension-panel';
 export const TOOLBAR_ID = 'annotator-extension-toolbar';
 export const TOOLBAR_DRAG_HANDLE_ID = 'annotator-toolbar-drag-handle';

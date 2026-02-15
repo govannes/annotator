@@ -83,10 +83,6 @@ export function pickBestMatch(
   return best;
 }
 
-// ---------------------------------------------------------------------------
-// Quote-context anchoring (Strategy 3)
-// ---------------------------------------------------------------------------
-
 /**
  * Find quote in document using prefix + exact + suffix context.
  * Falls back to whitespace-normalized matching when fuzzy is true.
@@ -132,10 +128,6 @@ export function anchorFromQuoteContext(
   };
 }
 
-// ---------------------------------------------------------------------------
-// Quote-only anchoring (Strategy 4)
-// ---------------------------------------------------------------------------
-
 /**
  * Find exact quote in document text and return character offsets.
  * When the quote appears multiple times, uses position hint and prefix/suffix to pick the right one.
@@ -177,10 +169,6 @@ export function anchorFromQuoteOnly(
   }
   return matches[0] ?? null;
 }
-
-// ---------------------------------------------------------------------------
-// Whitespace normalization helpers
-// ---------------------------------------------------------------------------
 
 function findAllNeedleMatches(documentText: string, needle: string): { start: number; end: number }[] {
   const matches: { start: number; end: number }[] = [];

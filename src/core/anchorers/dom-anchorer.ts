@@ -1,11 +1,11 @@
 import type { Annotation, AnnotationTarget, AnchorResult, AnchoringStrategy } from '../../types';
-import type { Mapper } from '../selectors';
+import type { Mapper } from '../selectors/types';
 import {
   DomRangeSelectorBuilder,
   DomTextPositionSelectorBuilder,
   DomTextQuoteSelectorBuilder,
-} from '../selectors';
-import type { AnchorerInterface, AnchorContext, BuildSelectorsOptions } from './types';
+} from '../selectors/dom-selector-builder';
+
 import {
   findAllExactMatches,
   pickBestMatch,
@@ -13,9 +13,8 @@ import {
   anchorFromQuoteOnly,
 } from './text-search';
 
-export const TEXT_QUOTE_CONTEXT_LENGTH = 32;
 
-export class DomAnchorer implements AnchorerInterface {
+export class DomAnchorer  {
   private readonly rangeBuilder = new DomRangeSelectorBuilder();
   private readonly positionBuilder = new DomTextPositionSelectorBuilder();
   private readonly quoteBuilder = new DomTextQuoteSelectorBuilder();
@@ -25,9 +24,7 @@ export class DomAnchorer implements AnchorerInterface {
     root: Node,
     mapper: Mapper,
     documentText: string,
-    options: BuildSelectorsOptions = {}
   ): AnnotationTarget['selector'] {
-    const { prefixLen = TEXT_QUOTE_CONTEXT_LENGTH, suffixLen = TEXT_QUOTE_CONTEXT_LENGTH } = options;
     const rootEl = root.nodeType === Node.DOCUMENT_NODE ? (root as Document).body : (root as Element);
     if (!rootEl) throw new Error('DomAnchorer.buildSelectors: invalid root');
 
@@ -36,9 +33,7 @@ export class DomAnchorer implements AnchorerInterface {
     const textQuoteSel = this.quoteBuilder.build(
       documentText,
       textPositionSel.start,
-      textPositionSel.end,
-      prefixLen,
-      suffixLen
+      textPositionSel.end
     );
 
     return {
@@ -48,10 +43,9 @@ export class DomAnchorer implements AnchorerInterface {
     };
   }
 
-  anchor(annotation: Annotation, root: Node, context: AnchorContext): AnchorResult {
+  anchor(annotation: Annotation, root: Node, text: string, mapper: Mapper): AnchorResult {
     const { selector } = annotation.target;
     const expectedQuote = selector.textQuote?.exact?.trim();
-    const { text, mapper } = context;
 
     if (selector.range) {
       let range = this.rangeBuilder.resolve(selector.range, root, expectedQuote ?? undefined);

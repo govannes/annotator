@@ -1,6 +1,6 @@
-import type { Mapper } from './selectors';
-import { DomAnchorer } from './anchorers';
-import { highlightRange, type HighlightStyle } from './highlighters';
+import type { Mapper } from './selectors/types';
+import { DomAnchorer } from './anchorers/dom-anchorer';
+import { highlightRange } from './highlighters/dom-highlighter';
 import type { Annotation, AnchorResult } from '../types';
 
 export interface HighlighterContext {
@@ -31,24 +31,10 @@ export class AnnotationHighlighter {
   }
 
     resolveRange(): AnchorResult {
-    return this.anchorer.anchor(this.annotation, this.root, this.context);
+    return this.anchorer.anchor(this.annotation, this.root, this.context.text, this.context.mapper);
   }
 
-    highlight(options: HighlightStyle = {}): boolean {
-    const result = this.resolveRange();
-    if (!result.ok) return false;
-    return highlightRange(result.range, this.annotation.id, {
-      type: this.annotation.highlightType,
-      color: this.annotation.highlightColor,
-      ...options,
-    });
-  }
-
-    highlightRange(range: Range, options: HighlightStyle = {}): boolean {
-    return highlightRange(range, this.annotation.id, {
-      type: this.annotation.highlightType,
-      color: this.annotation.highlightColor,
-      ...options,
-    });
+    highlightRange(range: Range): boolean {
+    return highlightRange(range, this.annotation.id);
   }
 }

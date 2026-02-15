@@ -1,12 +1,10 @@
-import { Annotation } from './annotation';
-import { deleteAnnotation, getHighlightAnnotationId } from './core';
+import { annotate, load } from './annotation';
+import { deleteAnnotation } from './core';
 
 export interface AnnotatorConfig {
-    root: Element;
-    getPageUrl: () => string;
+  root: Element;
+  getPageUrl: () => string;
 }
-
-const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
 let selectedAnnotationId: string | null = null;
 
@@ -14,10 +12,8 @@ export async function init(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl } = config;
   console.log('[Annotator] Init; root:', ROOT);
 
-  Annotation.configure({ getPageUrl });
-
   const pageUrl = getPageUrl();
-  const loadResult = await Annotation.load(pageUrl).into(ROOT);
+  const loadResult = await load(pageUrl, ROOT);
   const { anchored, total } = loadResult;
   console.log(`[Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}`);
 
@@ -50,26 +46,16 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
       return;
     }
     try {
-      const annotation = await Annotation.annotate({
+      const annotation = await annotate({
         range,
         root: ROOT,
-        highlightType: 'highlight',
-        highlightColor: HIGHLIGHT_COLOR,
-      }).done();
+        pageUrl: config.getPageUrl(),
+      });
       addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
       console.log('[Annotator] Annotation saved:', annotation);
     } catch (e) {
       addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
       console.error('[Annotator] Save error:', e);
-    }
-  });
-
-  ROOT.addEventListener('click', (e) => {
-    const el = (e.target as Node) instanceof Element ? (e.target as Element) : null;
-    const highlightEl = el?.closest?.('.annotator-highlight');
-    if (highlightEl) {
-      selectedAnnotationId = getHighlightAnnotationId(highlightEl as Element);
-      console.log('[Annotator] Selected highlight:', selectedAnnotationId?.slice(0, 8));
     }
   });
 
@@ -93,9 +79,8 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
 
 export async function reattachHighlights(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl } = config;
-  Annotation.configure({ getPageUrl });
   const pageUrl = getPageUrl();
-  const result = await Annotation.load(pageUrl).into(ROOT);
+  const result = await load(pageUrl, ROOT);
   if (result.total > 0) {
     console.log(`[Annotator] Re-attach: ${result.anchored}/${result.total} highlights`);
   }

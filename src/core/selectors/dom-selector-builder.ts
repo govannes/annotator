@@ -10,6 +10,9 @@ import type {
   TextQuoteSelectorBuilder,
 } from './types';
 
+
+const TEXT_QUOTE_CONTEXT_LENGTH = 32;
+
 export class DomRangeSelectorBuilder implements RangeSelectorBuilder {
   build(domRange: Range, root: Node): RangeSelector {
     const startElement = getElementContaining(domRange.startContainer);
@@ -70,12 +73,10 @@ export class DomTextQuoteSelectorBuilder implements TextQuoteSelectorBuilder {
     documentText: string,
     start: number,
     end: number,
-    prefixLen = 32,
-    suffixLen = 32
   ): TextQuoteSelector {
     const exact = documentText.slice(start, end);
-    const prefix = documentText.slice(Math.max(0, start - prefixLen), start);
-    const suffix = documentText.slice(end, Math.min(documentText.length, end + suffixLen));
+    const prefix = documentText.slice(Math.max(0, start - TEXT_QUOTE_CONTEXT_LENGTH), start);
+    const suffix = documentText.slice(end, Math.min(documentText.length, end + TEXT_QUOTE_CONTEXT_LENGTH));
     return { exact, prefix, suffix };
   }
 }

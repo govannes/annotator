@@ -1,29 +1,10 @@
-import type { Highlighter, HighlightStyle } from './types';
-
 const HIGHLIGHT_CLASS = 'annotator-highlight';
-
-export class DomHighlighter implements Highlighter {
-  draw(range: Range, annotationId: string, style: HighlightStyle = {}): boolean {
-    return highlightRange(range, annotationId, style);
-  }
-
-  clear(root: Element): void {
-    clearHighlights(root);
-  }
-
-  getAnnotationId(element: Element): string | null {
-    return getHighlightAnnotationId(element);
-  }
-
-  isHighlight(element: Element): boolean {
-    return isHighlightElement(element);
-  }
-}
+const HIGHLIGHT_TYPE = 'highlight';
+const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
 export function highlightRange(
   range: Range,
-  annotationId: string,
-  style: HighlightStyle = {}
+  annotationId: string
 ): boolean {
   if (range.collapsed) return false;
   const root = range.commonAncestorContainer;
@@ -40,18 +21,10 @@ export function highlightRange(
 
   let firstSpan: HTMLSpanElement | undefined;
   for (let i = textSegments.length - 1; i >= 0; i--) {
-    const span = wrapTextSegment(textSegments[i]!, annotationId, style);
+    const span = wrapTextSegment(textSegments[i]!, annotationId);
     if (span && firstSpan === undefined) firstSpan = span;
   }
   return firstSpan !== undefined;
-}
-
-export function getHighlightAnnotationId(span: Element): string | null {
-  return span.getAttribute('data-annotation-id');
-}
-
-export function isHighlightElement(el: Element): boolean {
-  return el.classList.contains(HIGHLIGHT_CLASS);
 }
 
 export function clearHighlights(root: Element): void {
@@ -135,7 +108,6 @@ function collectHighlightRanges(
 function wrapTextSegment(
   segment: TextSegment,
   annotationId: string,
-  style: HighlightStyle
 ): HTMLSpanElement | null {
   const { node, start, end } = segment;
   const midText = node.data.slice(start, end);
@@ -145,8 +117,8 @@ function wrapTextSegment(
   const span = document.createElement('span');
   span.className = HIGHLIGHT_CLASS;
   span.setAttribute('data-annotation-id', annotationId);
-  if (style.type) span.setAttribute('data-highlight-type', style.type);
-  if (style.color) span.style.setProperty('background-color', style.color, 'important');
+  span.setAttribute('data-highlight-type', HIGHLIGHT_TYPE);
+  span.style.setProperty('background-color', HIGHLIGHT_COLOR, 'important');
 
   const beforeText = node.data.slice(0, start);
   const afterText = node.data.slice(end);
