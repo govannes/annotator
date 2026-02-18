@@ -1,1 +1,39 @@
-@import "tailwindcss";
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/*
+ * Scoped reset — only applies inside our extension containers so we never
+ * touch the host page's styles (no global preflight).
+ */
+#annotator-extension-panel,
+#annotator-extension-panel *,
+#annotator-extension-panel *::before,
+#annotator-extension-panel *::after,
+#annotator-db-overlay,
+#annotator-db-overlay *,
+#annotator-db-overlay *::before,
+#annotator-db-overlay *::after {
+  box-sizing: border-box;
+  border-width: 0;
+  border-style: solid;
+  border-color: currentColor;
+  margin: 0;
+  padding: 0;
+}
+
+#annotator-extension-panel svg,
+#annotator-db-overlay svg {
+  display: block;
+}
+
+#annotator-extension-panel button,
+#annotator-db-overlay button {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
