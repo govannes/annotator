@@ -1,5 +1,6 @@
-import { annotate, load } from './annotation';
+import { annotate, load, retryFailed } from './annotation';
 import { deleteAnnotation } from './core';
+import type { Annotation } from './types';
 
 export interface AnnotatorConfig {
   root: Element;
@@ -7,6 +8,7 @@ export interface AnnotatorConfig {
 }
 
 let selectedAnnotationId: string | null = null;
+let pendingAnnotations: Annotation[] = [];
 
 export async function init(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl } = config;
@@ -14,8 +16,9 @@ export async function init(config: AnnotatorConfig): Promise<void> {
 
   const pageUrl = getPageUrl();
   const loadResult = await load(pageUrl, ROOT);
-  const { anchored, total } = loadResult;
-  console.log(`[Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}`);
+  const { anchored, total, failed } = loadResult;
+  pendingAnnotations = failed;
+  console.log(`[Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}, pending: ${failed.length}`);
 
   wireButtons(ROOT, config);
 }
@@ -77,7 +80,23 @@ export async function reattachHighlights(config: AnnotatorConfig): Promise<void>
   const { root: ROOT, getPageUrl } = config;
   const pageUrl = getPageUrl();
   const result = await load(pageUrl, ROOT);
+  pendingAnnotations = result.failed;
   if (result.total > 0) {
-    console.log(`[Annotator] Re-attach: ${result.anchored}/${result.total} highlights`);
+    console.log(`[Annotator] Re-attach: ${result.anchored}/${result.total} highlights, pending: ${result.failed.length}`);
   }
+}
+
+/**
+ * Incrementally retry only previously-failed annotations.
+ * Doesn't clear existing highlights — just tries to anchor the missing ones
+ * into newly-loaded DOM content (infinite scroll, lazy rendering, etc.).
+ */
+export function retryPending(config: AnnotatorConfig): void {
+  if (pendingAnnotations.length === 0) return;
+  const stillFailed = retryFailed(pendingAnnotations, config.root);
+  pendingAnnotations = stillFailed;
+}
+
+export function hasPending(): boolean {
+  return pendingAnnotations.length > 0;
 }

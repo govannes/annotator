@@ -9,10 +9,12 @@ import {
 import { AnnotationHighlighter } from './core/annotation-highlighter';
 import type { Annotation } from './types';
 
-interface LoadResult {
+export interface LoadResult {
   annotations: Annotation[];
   anchored: number;
   total: number;
+  /** Annotations that couldn't be anchored (content not in DOM yet) */
+  failed: Annotation[];
 }
 
 export async function annotate(range: Range, root: Element, pageUrl: string, body?: { type: string; value: string }): Promise<Annotation> {
@@ -43,9 +45,37 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
   console.group(`${TAG} Loading ${annotations.length}/${all.length} annotations for ${pageUrl}`);
 
   clearHighlights(root);
+  const { anchored, failed } = anchorBatch(annotations, root, TAG);
+
+  console.log(`${TAG} Result: ${anchored}/${annotations.length} anchored, ${failed.length} pending`);
+  console.groupEnd();
+  return { annotations, anchored, total: annotations.length, failed };
+}
+
+/**
+ * Incrementally retry previously-failed annotations without clearing
+ * existing highlights. Returns the subset that still couldn't anchor.
+ */
+export function retryFailed(pending: Annotation[], root: Element): Annotation[] {
+  const TAG = '[Annotator:retry]';
+  if (pending.length === 0) return [];
+
+  console.group(`${TAG} Retrying ${pending.length} pending annotations`);
+  const { anchored, failed } = anchorBatch(pending, root, TAG);
+  console.log(`${TAG} Retry result: ${anchored} newly anchored, ${failed.length} still pending`);
+  console.groupEnd();
+  return failed;
+}
+
+function anchorBatch(
+  annotations: Annotation[],
+  root: Element,
+  TAG: string,
+): { anchored: number; failed: Annotation[]; text: string; segments: import('./core/dom-text-mapper').Segment[] } {
   let anchored = 0;
+  const failed: Annotation[] = [];
   let { text: currentText, segments: currentSegments } = build(root);
-  console.log(`${TAG} Initial doc text length: ${currentText.length}, segments: ${currentSegments.length}`);
+  console.log(`${TAG} Doc text length: ${currentText.length}, segments: ${currentSegments.length}`);
 
   for (const ann of annotations) {
     const highlighter = new AnnotationHighlighter(ann, root, currentText, currentSegments);
@@ -66,7 +96,7 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
             `\n  Resolved (len=${resolvedText.length}): "${resolvedText.slice(0, 120)}"` +
             `\n  DB exact (len=${ann.selector.exact?.length ?? 0}): "${ann.selector.exact?.slice(0, 120)}"` +
             `\n  Strategy: ${result.strategy}` +
-            `\n  Selector: start="${ann.selector.start}" end="${ann.selector.end}" startOff=${ann.selector.startOffset} endOff=${ann.selector.endOffset}` +
+            `\n  Selector: start="${ann.selector.start}" end="${ann.selector.end}" elOff=[${ann.selector.startOffset}, ${ann.selector.endOffset}] docOff=[${ann.selector.docStartOffset}, ${ann.selector.docEndOffset}]` +
             `\n  Prefix: "${ann.selector.prefix}" Suffix: "${ann.selector.suffix}"`
           );
         }
@@ -75,11 +105,10 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
         currentSegments = next.segments;
       }
     } else {
-      console.warn(`${TAG} ✗ ${ann.id.slice(0, 8)} failed: ${result.error} — exact was: "${ann.selector.exact?.slice(0, 60)}…"`);
+      failed.push(ann);
+      console.warn(`${TAG} ✗ ${ann.id.slice(0, 8)} failed — exact: "${ann.selector.exact?.slice(0, 60)}…"`);
     }
   }
 
-  console.log(`${TAG} Result: ${anchored}/${annotations.length} anchored`);
-  console.groupEnd();
-  return { annotations, anchored, total: annotations.length };
+  return { anchored, failed, text: currentText, segments: currentSegments };
 }

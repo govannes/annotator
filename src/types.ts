@@ -1,11 +1,17 @@
 export interface Selector {
-  exact: string;       
-  prefix: string;      
-  suffix: string;   
-  start: string;       
+  exact: string;
+  prefix: string;
+  suffix: string;
+
+  // Strategy 1: XPath path + char offset within the resolved element
+  start: string;
   end: string;
-  startOffset: number; 
+  startOffset: number;
   endOffset: number;
+
+  // Strategy 2: document-level character offsets (independent of DOM structure)
+  docStartOffset?: number;
+  docEndOffset?: number;
 }
 
 export interface Annotation {

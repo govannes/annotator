@@ -1,5 +1,5 @@
 import './style.css';
-import { init, reattachHighlights } from './main';
+import { init, reattachHighlights, retryPending, hasPending } from './main';
 import { PANEL_ID, DB_OVERLAY_ID, injectToolbar, setupShowDbButton } from './panel';
 import { ContentObserver, ContentEvent } from './engine/content-observer';
 
@@ -56,7 +56,10 @@ const REATTACH_COOLDOWN_MS = 1500;
 let reattaching = false;
 let cooldownUntil = 0;       // timestamp — no reattach before this
 let pendingReattach = false;  // something significant happened during cooldown
+let pendingIsNav = false;     // queued event includes a navigation (needs full reload)
 let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+
+const isNavigation = (kind: string) => kind === 'history-push' || kind === 'history-pop';
 
 function handleContentEvent(event: ContentEvent): void {
   console.log(
@@ -69,9 +72,17 @@ function handleContentEvent(event: ContentEvent): void {
 
   if (!event.significant) return;
 
+  // Navigation always triggers a full reattach
+  // DOM mutations only trigger work if we have pending (unanchored) annotations
+  if (!isNavigation(event.kind) && !hasPending()) {
+    console.log(TAG, 'mutation but no pending annotations — skipping');
+    return;
+  }
+
   if (reattaching) {
     console.log(TAG, 'reattach in progress — queued for after');
     pendingReattach = true;
+    pendingIsNav = pendingIsNav || isNavigation(event.kind);
     return;
   }
 
@@ -80,6 +91,7 @@ function handleContentEvent(event: ContentEvent): void {
     if (!pendingReattach) {
       console.log(TAG, `cooldown active (${cooldownUntil - now}ms left) — queued`);
       pendingReattach = true;
+      pendingIsNav = pendingIsNav || isNavigation(event.kind);
       scheduleCooldownFlush();
     }
     return;
@@ -115,20 +127,35 @@ function scheduleCooldownFlush(): void {
 
 async function runReattach(trigger: string): Promise<void> {
   reattaching = true;
-  console.log(TAG, `reattach (trigger: ${trigger})`);
+  const fullReload = isNavigation(trigger);
+
+  if (fullReload) {
+    console.log(TAG, `full reattach (trigger: ${trigger})`);
+  } else {
+    console.log(TAG, `incremental retry (trigger: ${trigger})`);
+  }
+
   try {
-    await reattachHighlights(extensionConfig);
+    if (fullReload) {
+      await reattachHighlights(extensionConfig);
+    } else {
+      retryPending(extensionConfig);
+    }
   } catch (e) {
     console.error(TAG, 'reattach failed:', e);
   } finally {
     reattaching = false;
     cooldownUntil = Date.now() + REATTACH_COOLDOWN_MS;
-    console.log(TAG, `cooldown started (${REATTACH_COOLDOWN_MS}ms)`);
 
-    // If events arrived while we were working, schedule one more
     if (pendingReattach) {
+      const wasNav = pendingIsNav;
       pendingReattach = false;
-      scheduleCooldownFlush();
+      pendingIsNav = false;
+      if (wasNav) {
+        scheduleIdleReattach('history-push');
+      } else {
+        scheduleCooldownFlush();
+      }
     }
   }
 }
