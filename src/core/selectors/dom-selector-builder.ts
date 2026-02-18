@@ -55,8 +55,15 @@ export function buildFromTextPosition(domRange: Range, segments: Segment[]): Par
   return { start: String(start), end: String(end), startOffset: start, endOffset: end };
 }
 
-export function resolveFromTextPosition(selector: Selector, segments: Segment[], _expectedQuote?: string): Range | null {
-  return mapperOffsetsToRange(selector.startOffset, selector.endOffset, segments);
+export function resolveFromTextPosition(selector: Selector, segments: Segment[], expectedQuote?: string): Range | null {
+  const range = mapperOffsetsToRange(selector.startOffset, selector.endOffset, segments);
+  if (!range) return null;
+
+  // Validate resolved text against expected quote — reject stale offsets
+  if (expectedQuote != null && range.toString().trim() !== expectedQuote.trim()) {
+    return null;
+  }
+  return range;
 }
 
 

@@ -45,11 +45,20 @@ function watchForPanelRemoval(): void {
   });
 }
 
-// ─── Reattach (observer-driven, repeatable) ─────────────────────────────────
+// ─── Reattach scheduler (idle-aware, cooldown-paced) ────────────────────────
+//
+// Like a game loop: we never run reattach during busy frames. We wait for
+// idle time, enforce a cooldown between runs, and coalesce events that
+// arrive during the cooldown into a single follow-up.
+
+const REATTACH_COOLDOWN_MS = 1500;
 
 let reattaching = false;
+let cooldownUntil = 0;       // timestamp — no reattach before this
+let pendingReattach = false;  // something significant happened during cooldown
+let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
-async function handleContentEvent(event: ContentEvent): Promise<void> {
+function handleContentEvent(event: ContentEvent): void {
   console.log(
     TAG,
     `content event: ${event.kind}`,
@@ -61,18 +70,66 @@ async function handleContentEvent(event: ContentEvent): Promise<void> {
   if (!event.significant) return;
 
   if (reattaching) {
-    console.log(TAG, 'reattach already in progress — skipping');
+    console.log(TAG, 'reattach in progress — queued for after');
+    pendingReattach = true;
     return;
   }
 
+  const now = Date.now();
+  if (now < cooldownUntil) {
+    if (!pendingReattach) {
+      console.log(TAG, `cooldown active (${cooldownUntil - now}ms left) — queued`);
+      pendingReattach = true;
+      scheduleCooldownFlush();
+    }
+    return;
+  }
+
+  scheduleIdleReattach(event.kind);
+}
+
+/** Wait for browser idle time, then run reattach. */
+function scheduleIdleReattach(trigger: string): void {
+  const schedule = window.requestIdleCallback ?? ((cb: () => void) => setTimeout(cb, 0));
+  schedule(() => {
+    if (reattaching) {
+      pendingReattach = true;
+      return;
+    }
+    runReattach(trigger);
+  });
+}
+
+/** If something was queued during cooldown, flush it when cooldown expires. */
+function scheduleCooldownFlush(): void {
+  if (cooldownTimer) return;
+  const delay = Math.max(0, cooldownUntil - Date.now());
+  cooldownTimer = setTimeout(() => {
+    cooldownTimer = null;
+    if (pendingReattach && !reattaching) {
+      pendingReattach = false;
+      scheduleIdleReattach('cooldown-flush');
+    }
+  }, delay);
+}
+
+async function runReattach(trigger: string): Promise<void> {
   reattaching = true;
+  console.log(TAG, `reattach (trigger: ${trigger})`);
   try {
-    console.log(TAG, `reattach triggered by ${event.kind}`);
     await reattachHighlights(extensionConfig);
   } catch (e) {
     console.error(TAG, 'reattach failed:', e);
   } finally {
     reattaching = false;
+    cooldownUntil = Date.now() + REATTACH_COOLDOWN_MS;
+    console.log(TAG, `cooldown started (${REATTACH_COOLDOWN_MS}ms)`);
+
+    // If events arrived while we were working, schedule one more
+    if (pendingReattach) {
+      pendingReattach = false;
+      scheduleCooldownFlush();
+    }
   }
 }
 
