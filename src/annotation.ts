@@ -38,7 +38,7 @@ export async function annotate(range: Range, root: Element, pageUrl: string, bod
 }
 
 export async function load(pageUrl: string, root: Element): Promise<LoadResult> {
-  const TAG = '[Annotator:load]';
+  const TAG = '[Highlighter][Annotator:load]';
   const all = await loadAnnotations();
   const annotations = all.filter((a) => a.pageUrl === pageUrl);
 
@@ -57,7 +57,7 @@ export async function load(pageUrl: string, root: Element): Promise<LoadResult> 
  * existing highlights. Returns the subset that still couldn't anchor.
  */
 export function retryFailed(pending: Annotation[], root: Element): Annotation[] {
-  const TAG = '[Annotator:retry]';
+  const TAG = '[Highlighter][Annotator:retry]';
   if (pending.length === 0) return [];
 
   console.group(`${TAG} Retrying ${pending.length} pending annotations`);

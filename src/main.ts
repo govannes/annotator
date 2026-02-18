@@ -12,13 +12,13 @@ let pendingAnnotations: Annotation[] = [];
 
 export async function init(config: AnnotatorConfig): Promise<void> {
   const { root: ROOT, getPageUrl } = config;
-  console.log('[Annotator] Init; root:', ROOT);
+  console.log('[Highlighter][Annotator] Init; root:', ROOT);
 
   const pageUrl = getPageUrl();
   const loadResult = await load(pageUrl, ROOT);
   const { anchored, total, failed } = loadResult;
   pendingAnnotations = failed;
-  console.log(`[Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}, pending: ${failed.length}`);
+  console.log(`[Highlighter][Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}, pending: ${failed.length}`);
 
   wireButtons(ROOT, config);
 }
@@ -29,7 +29,7 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
   const addResult = document.getElementById('add-annotation-result');
 
   if (!addBtn || !deleteBtn || !addResult) {
-    console.warn('[Annotator] Missing button elements (add-annotation, annotator-btn-delete, add-annotation-result)');
+    console.warn('[Highlighter][Annotator] Missing button elements (add-annotation, annotator-btn-delete, add-annotation-result)');
     return;
   }
 
@@ -51,10 +51,10 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
     try {
       const annotation = await annotate(range, ROOT, config.getPageUrl());
       addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
-      console.log('[Annotator] Annotation saved:', annotation);
+      console.log('[Highlighter][Annotator] Annotation saved:', annotation);
     } catch (e) {
       addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[Annotator] Save error:', e);
+      console.error('[Highlighter][Annotator] Save error:', e);
     }
   });
 
@@ -65,13 +65,13 @@ function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
     }
     try {
       await deleteAnnotation(selectedAnnotationId);
-      console.log('[Annotator] Deleted:', selectedAnnotationId.slice(0, 8));
+      console.log('[Highlighter][Annotator] Deleted:', selectedAnnotationId.slice(0, 8));
       selectedAnnotationId = null;
       await reattachHighlights(config);
       addResult.textContent = 'Deleted.';
     } catch (e) {
       addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[Annotator] Delete error:', e);
+      console.error('[Highlighter][Annotator] Delete error:', e);
     }
   });
 }
@@ -82,7 +82,7 @@ export async function reattachHighlights(config: AnnotatorConfig): Promise<void>
   const result = await load(pageUrl, ROOT);
   pendingAnnotations = result.failed;
   if (result.total > 0) {
-    console.log(`[Annotator] Re-attach: ${result.anchored}/${result.total} highlights, pending: ${result.failed.length}`);
+    console.log(`[Highlighter][Annotator] Re-attach: ${result.anchored}/${result.total} highlights, pending: ${result.failed.length}`);
   }
 }
 

@@ -55,7 +55,7 @@ export interface ContentObserverConfig {
 
 const DEFAULT_MIN_ELEMENTS = 10;
 const DEFAULT_MIN_TEXT_CHARS = 20;
-const TAG = '[ContentObserver]';
+const TAG = '[Highlighter][ContentObserver]';
 
 // ─── Implementation ─────────────────────────────────────────────────────────
 

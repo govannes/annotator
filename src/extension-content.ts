@@ -1,11 +1,11 @@
+import { ContentEvent, ContentObserver } from './engine/content-observer';
+import { hasPending, init, reattachHighlights, retryPending } from './main';
+import { DB_OVERLAY_ID, injectToolbar, PANEL_ID, setupShowDbButton } from './panel';
 import './style.css';
-import { init, reattachHighlights, retryPending, hasPending } from './main';
-import { PANEL_ID, DB_OVERLAY_ID, injectToolbar, setupShowDbButton } from './panel';
-import { ContentObserver, ContentEvent } from './engine/content-observer';
 
 const REINJECT_DEBOUNCE_MS = 500;
 
-const TAG = '[Annotator]';
+const TAG = '[Highlighter][Annotator]';
 
 function injectPanel(): boolean {
   const didInject = injectToolbar();

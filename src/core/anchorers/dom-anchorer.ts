@@ -1,18 +1,18 @@
-import type { Annotation, Selector, AnchorResult } from '../../types';
+import type { AnchorResult, Annotation, Selector } from '../../types';
 import { mapperOffsetsToRange, mapperRangeToOffsets, Segment } from '../dom-text-mapper';
 import {
-  buildFromRange,
-  resolveFromRange,
-  buildFromTextPosition,
-  resolveFromTextPosition,
-  buildFromTextQuote,
+    buildFromRange,
+    buildFromTextPosition,
+    buildFromTextQuote,
+    resolveFromRange,
+    resolveFromTextPosition,
 } from '../selectors/dom-selector-builder';
 
 import {
-  findAllExactMatches,
-  pickBestMatch,
-  anchorFromQuoteContext,
-  anchorFromQuoteOnly,
+    anchorFromQuoteContext,
+    anchorFromQuoteOnly,
+    findAllExactMatches,
+    pickBestMatch,
 } from './text-search';
 
 
@@ -60,7 +60,7 @@ export class DomAnchorer  {
    *   4. position       — document-level character offsets
    */
   anchor(annotation: Annotation, root: Node, text: string, segments: Segment[]): AnchorResult {
-    const TAG = '[Anchorer]';
+    const TAG = '[Highlighter][Anchorer]';
     const selector = annotation.selector;
     const annId = annotation.id?.slice(0, 8) ?? '?';
 
