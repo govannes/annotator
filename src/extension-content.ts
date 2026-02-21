@@ -1,6 +1,6 @@
 import { ContentEvent, ContentObserver } from './engine/content-observer';
 import { hasPending, init, reattachHighlights, retryPending } from './main';
-import { DB_OVERLAY_ID, injectToolbar, PANEL_ID, setupShowDbButton } from './panel';
+import { POPUP_PANEL_ID, injectToolbar, PANEL_ID, setupShowDbButton } from './panel';
 import './style.css';
 
 const REINJECT_DEBOUNCE_MS = 500;
@@ -173,7 +173,7 @@ function startContentObserver(): void {
     minTextChars: 20,
     ignoreSelectors: [
       `#${PANEL_ID}`,
-      `#${DB_OVERLAY_ID}`,
+      `#${POPUP_PANEL_ID}`,
       '.annotator-highlight',
     ],
     onContent: handleContentEvent,

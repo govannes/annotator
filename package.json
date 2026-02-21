@@ -8,13 +8,17 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "dev:extension": "tsc && vite build --config vite.extension.config.ts --sourcemap --minify false",
-    "build:extension": "tsc && vite build --config vite.extension.config.ts"
+    "build:extension": "tsc && vite build --config vite.extension.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.1.18",
+    "happy-dom": "^20.6.2",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.3.3",
-    "vite": "^5.0.10"
+    "vite": "^5.0.10",
+    "vitest": "^4.0.18"
   },
   "dependencies": {
     "node-html-parser": "^7.0.2"

@@ -6,34 +6,58 @@
 /*
  * Scoped reset — only applies inside our extension containers so we never
  * touch the host page's styles (no global preflight).
+ * Lives in @layer base so Tailwind utilities can override border-width etc.
  */
-#annotator-extension-panel,
-#annotator-extension-panel *,
-#annotator-extension-panel *::before,
-#annotator-extension-panel *::after,
-#annotator-db-overlay,
-#annotator-db-overlay *,
-#annotator-db-overlay *::before,
-#annotator-db-overlay *::after {
-  box-sizing: border-box;
-  border-width: 0;
-  border-style: solid;
-  border-color: currentColor;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  #annotator-extension-panel,
+  #annotator-extension-panel *,
+  #annotator-extension-panel *::before,
+  #annotator-extension-panel *::after,
+  #annotator-db-overlay,
+  #annotator-db-overlay *,
+  #annotator-db-overlay *::before,
+  #annotator-db-overlay *::after,
+  #annotator-popup-panel,
+  #annotator-popup-panel *,
+  #annotator-popup-panel *::before,
+  #annotator-popup-panel *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+    margin: 0;
+    padding: 0;
+  }
 
-#annotator-extension-panel svg,
-#annotator-db-overlay svg {
-  display: block;
-}
+  #annotator-extension-panel svg,
+  #annotator-db-overlay svg,
+  #annotator-popup-panel svg {
+    display: block;
+  }
 
-#annotator-extension-panel button,
-#annotator-db-overlay button {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
+  #annotator-extension-panel button,
+  #annotator-db-overlay button,
+  #annotator-popup-panel button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  #annotator-popup-panel input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    padding: 0;
+  }
+
+  #annotator-popup-panel input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
+
+  #annotator-popup-panel input[type="color"]::-webkit-color-swatch {
+    border: none;
+  }
 }

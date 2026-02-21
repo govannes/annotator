@@ -5,22 +5,32 @@ import {
   TOOLBAR_OFFSET_STORAGE_KEY,
 } from './constants';
 import { ICONS } from './icons';
+import { openPanel, syncPanelOffset } from './popup-panel';
+import { openPalettePanel, applySavedPalette } from './palette-panel';
 
-const BTN = 'w-9 h-9 p-0 border-none rounded-lg bg-transparent text-[#ccc] cursor-pointer inline-flex items-center justify-center hover:bg-[#333] hover:text-[#eee] active:bg-[#444] [&>svg]:w-5 [&>svg]:h-5';
-const BTN_HIGHLIGHT = `${BTN} text-[#8bc34a] hover:bg-[#2d4a1a] hover:text-[#a5d6a7]`;
+const BTN = 'w-9 h-9 p-0 border-none rounded-lg bg-transparent text-[#444] cursor-pointer inline-flex items-center justify-center hover:bg-[#e8e8e8] hover:text-[#222] active:bg-[#ddd] [&>svg]:w-5 [&>svg]:h-5';
+const BTN_TOGGLE = 'w-9 h-9 p-0 border-none rounded-lg cursor-pointer inline-flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5';
+const BTN_TOGGLE_ACTIVE = 'bg-[#2e7d32] text-white shadow-sm';
+const BTN_TOGGLE_INACTIVE = 'bg-transparent text-[#444] hover:bg-[#e0e0e0]';
 
 function buildToolbarHTML(): string {
   return `
     <div id="${TOOLBAR_ID}"
-      class="fixed left-1/2 bottom-4 z-[2147483647] font-sans text-[13px] flex items-center bg-[#1a1a1a] text-[#eee] py-1.5 pl-0.5 pr-1 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.4)]"
+      class="fixed left-1/2 bottom-4 z-[2147483647] font-sans text-[13px] flex items-center bg-[#f0f0f0] text-[#333] py-1.5 pl-0.5 pr-1 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.12)]"
       style="transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)))">
       <div id="${TOOLBAR_DRAG_HANDLE_ID}"
-        class="cursor-grab py-2 px-1.5 mr-0.5 rounded-lg text-[#888] flex items-center justify-center select-none"
-        title="Drag to move toolbar">${ICONS.dragIndicator}</div>
-      <div class="flex items-center gap-0.5 pl-1 border-l border-[#333]">
-        <button type="button" id="add-annotation" class="${BTN_HIGHLIGHT}" title="Highlight selection">${ICONS.highlight}</button>
-        <button type="button" id="annotator-btn-showdb" class="${BTN}" title="Show annotations DB">${ICONS.database}</button>
-        <button type="button" id="annotator-btn-delete" class="${BTN}" title="Delete selected highlight">${ICONS.delete}</button>
+        class="cursor-grab py-2 px-2 border-r text-[#aaa] flex items-center justify-center select-none"
+        title="Drag to move toolbar" data-divider>${ICONS.dragIndicator}</div>
+      <div class="flex items-center gap-1.5 px-2">
+        <div class="flex items-center bg-transparent border border-current rounded-lg p-0.5 gap-0.5" data-toggle-group="annotation-mode">
+          <button type="button" id="add-annotation" class="${BTN_TOGGLE} ${BTN_TOGGLE_ACTIVE}" title="Highlight selection" data-mode="highlight">${ICONS.highlight}</button>
+          <button type="button" id="annotator-btn-ink" class="${BTN_TOGGLE} ${BTN_TOGGLE_INACTIVE}" title="Ink Selection" data-mode="ink">${ICONS.inkSelection}</button>
+        </div>
+        <button type="button" id="annotator-btn-showdb" class="${BTN}" title="Show annotations DB" data-panel="database">${ICONS.database}</button>
+        <button type="button" id="annotator-btn-palette" class="${BTN}" title="Palette" data-panel="palette">${ICONS.palette}</button>
+        <button type="button" id="annotator-btn-chatbox" class="${BTN}" title="Chatbox" data-panel="chatbox">${ICONS.chatbox}</button>
+        <button type="button" id="annotator-btn-dashboard" class="${BTN}" title="Dashboard" data-panel="dashboard">${ICONS.dashboard}</button>
+        <button type="button" id="annotator-btn-settings" class="${BTN}" title="Settings" data-panel="settings">${ICONS.settings}</button>
       </div>
     </div>
     <div id="add-annotation-result" class="fixed -left-[9999px] pointer-events-none" aria-hidden="true"></div>
@@ -44,6 +54,7 @@ function setupToolbarDrag(): void {
 
   function setOffsetPx(px: number): void {
     toolbar!.style.setProperty('--annotator-toolbar-offset-x', `${px}px`);
+    syncPanelOffset();
     try {
       localStorage.setItem(pageKey, String(px));
     } catch (_) { /* ignore */ }
@@ -74,6 +85,72 @@ function setupToolbarDrag(): void {
   });
 }
 
+let activeMode: 'highlight' | 'ink' = 'highlight';
+
+export function getActiveMode(): 'highlight' | 'ink' {
+  return activeMode;
+}
+
+function setupModeToggle(): void {
+  const group = document.querySelector('[data-toggle-group="annotation-mode"]');
+  if (!group) return;
+
+  const buttons = group.querySelectorAll<HTMLButtonElement>('button[data-mode]');
+  const activeCls = BTN_TOGGLE_ACTIVE.split(' ');
+  const inactiveCls = BTN_TOGGLE_INACTIVE.split(' ');
+
+  buttons.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode as 'highlight' | 'ink';
+      if (mode === activeMode) return;
+      activeMode = mode;
+
+      buttons.forEach((b) => {
+        const isActive = b.dataset.mode === mode;
+        b.classList.remove(...activeCls, ...inactiveCls);
+        b.classList.add(...(isActive ? activeCls : inactiveCls));
+        b.style.backgroundColor = '';
+        b.style.color = '';
+      });
+
+      applySavedPalette();
+    });
+  });
+}
+
+const PANEL_PLACEHOLDERS: Record<string, string> = {
+  chatbox: 'Chatbox',
+  dashboard: 'Dashboard',
+  settings: 'Settings',
+};
+
+function setupPanelButtons(): void {
+  const buttons = document.querySelectorAll<HTMLButtonElement>(
+    '#' + TOOLBAR_ID + ' button[data-panel]',
+  );
+
+  buttons.forEach((btn) => {
+    const panelId = btn.dataset.panel!;
+    if (panelId === 'database') return;
+
+    if (panelId === 'palette') {
+      btn.addEventListener('click', () => openPalettePanel());
+      return;
+    }
+
+    const title = PANEL_PLACEHOLDERS[panelId] ?? panelId;
+    btn.addEventListener('click', () => {
+      openPanel(panelId, title, (body) => {
+        body.innerHTML = `
+          <div class="flex items-center justify-center py-8 text-[var(--ap-muted)] text-sm">
+            ${title} coming soon
+          </div>
+        `;
+      });
+    });
+  });
+}
+
 export function injectToolbar(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
 
@@ -83,5 +160,8 @@ export function injectToolbar(): boolean {
   document.body.appendChild(panel);
 
   setupToolbarDrag();
+  setupModeToggle();
+  setupPanelButtons();
+  applySavedPalette();
   return true;
 }
