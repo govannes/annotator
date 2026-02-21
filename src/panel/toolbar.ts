@@ -1,17 +1,61 @@
 import {
   PANEL_ID,
-  TOOLBAR_ID,
   TOOLBAR_DRAG_HANDLE_ID,
+  TOOLBAR_ID,
   TOOLBAR_OFFSET_STORAGE_KEY,
 } from './constants';
 import { ICONS } from './icons';
+import { applySavedPalette, openPalettePanel } from './palette-panel';
 import { openPanel, syncPanelOffset } from './popup-panel';
-import { openPalettePanel, applySavedPalette } from './palette-panel';
 
 const BTN = 'w-9 h-9 p-0 border-none rounded-lg bg-transparent text-[#444] cursor-pointer inline-flex items-center justify-center hover:bg-[#e8e8e8] hover:text-[#222] active:bg-[#ddd] [&>svg]:w-5 [&>svg]:h-5';
 const BTN_TOGGLE = 'w-9 h-9 p-0 border-none rounded-lg cursor-pointer inline-flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5';
 const BTN_TOGGLE_ACTIVE = 'bg-[#2e7d32] text-white shadow-sm';
 const BTN_TOGGLE_INACTIVE = 'bg-transparent text-[#444] hover:bg-[#e0e0e0]';
+
+const HIGHLIGHT_DISABLED_KEY = 'annotator_highlight_disabled';
+const SAVED_COLOR_ATTR = 'data-annotator-saved-color';
+let highlightDisabled = false;
+
+function loadHighlightDisabled(): boolean {
+  try {
+    return localStorage.getItem(HIGHLIGHT_DISABLED_KEY) === '1';
+  } catch { return false; }
+}
+
+function saveHighlightDisabled(disabled: boolean): void {
+  highlightDisabled = disabled;
+  try {
+    localStorage.setItem(HIGHLIGHT_DISABLED_KEY, disabled ? '1' : '0');
+  } catch { /* ignore */ }
+  toggleHighlightSpans(disabled);
+}
+
+function toggleHighlightSpans(hide: boolean): void {
+  const spans = document.querySelectorAll<HTMLElement>('.annotator-highlight');
+  console.log('[Annotator] toggleHighlightSpans — hide:', hide, 'spans:', spans.length);
+  spans.forEach((span) => {
+    if (hide) {
+      const current = span.style.getPropertyValue('background-color');
+      if (current) span.setAttribute(SAVED_COLOR_ATTR, current);
+      span.style.setProperty('background-color', 'transparent', 'important');
+    } else {
+      const saved = span.getAttribute(SAVED_COLOR_ATTR);
+      if (saved) {
+        span.style.setProperty('background-color', saved, 'important');
+        span.removeAttribute(SAVED_COLOR_ATTR);
+      }
+    }
+  });
+}
+
+export function isHighlightDisabled(): boolean {
+  return highlightDisabled;
+}
+
+export function applyHighlightVisibility(): void {
+  if (highlightDisabled) toggleHighlightSpans(true);
+}
 
 function buildToolbarHTML(): string {
   return `
@@ -26,6 +70,7 @@ function buildToolbarHTML(): string {
           <button type="button" id="add-annotation" class="${BTN_TOGGLE} ${BTN_TOGGLE_ACTIVE}" title="Highlight selection" data-mode="highlight">${ICONS.highlight}</button>
           <button type="button" id="annotator-btn-ink" class="${BTN_TOGGLE} ${BTN_TOGGLE_INACTIVE}" title="Ink Selection" data-mode="ink">${ICONS.inkSelection}</button>
         </div>
+        <button type="button" id="annotator-btn-visibility" class="${BTN_TOGGLE} ${BTN_TOGGLE_INACTIVE}" title="Hide highlights" data-mode="visibility">${ICONS.visibilityOff}</button>
         <button type="button" id="annotator-btn-showdb" class="${BTN}" title="Show annotations DB" data-panel="database">${ICONS.database}</button>
         <button type="button" id="annotator-btn-palette" class="${BTN}" title="Palette" data-panel="palette">${ICONS.palette}</button>
         <button type="button" id="annotator-btn-chatbox" class="${BTN}" title="Chatbox" data-panel="chatbox">${ICONS.chatbox}</button>
@@ -151,6 +196,34 @@ function setupPanelButtons(): void {
   });
 }
 
+function setupVisibilityToggle(): void {
+  const btn = document.getElementById('annotator-btn-visibility');
+  console.log('[Annotator] setupVisibilityToggle — btn found:', !!btn);
+  if (!btn) return;
+
+  highlightDisabled = loadHighlightDisabled();
+  console.log('[Annotator] visibility init — disabled:', highlightDisabled);
+  applyVisibilityStyle(btn);
+
+  btn.addEventListener('click', () => {
+    const newState = !highlightDisabled;
+    console.log('[Annotator] visibility toggle clicked — hiding:', newState);
+    saveHighlightDisabled(newState);
+    applyVisibilityStyle(btn);
+  });
+}
+
+function applyVisibilityStyle(btn: HTMLElement): void {
+  const activeCls = BTN_TOGGLE_ACTIVE.split(' ');
+  const inactiveCls = BTN_TOGGLE_INACTIVE.split(' ');
+  btn.classList.remove(...activeCls, ...inactiveCls);
+  btn.classList.add(...(highlightDisabled ? activeCls : inactiveCls));
+  btn.style.backgroundColor = '';
+  btn.style.color = '';
+  btn.title = highlightDisabled ? 'Show highlights' : 'Hide highlights';
+  applySavedPalette();
+}
+
 export function injectToolbar(): boolean {
   if (document.getElementById(PANEL_ID)) return false;
 
@@ -161,6 +234,7 @@ export function injectToolbar(): boolean {
 
   setupToolbarDrag();
   setupModeToggle();
+  setupVisibilityToggle();
   setupPanelButtons();
   applySavedPalette();
   return true;

@@ -1,5 +1,6 @@
 import { annotate, load, retryFailed } from './annotation';
 import { deleteAnnotation } from './core';
+import { applyHighlightVisibility } from './panel';
 import type { Annotation } from './types';
 
 export interface AnnotatorConfig {
@@ -9,8 +10,10 @@ export interface AnnotatorConfig {
 
 let selectedAnnotationId: string | null = null;
 let pendingAnnotations: Annotation[] = [];
+let currentConfig: AnnotatorConfig | null = null;
 
 export async function init(config: AnnotatorConfig): Promise<void> {
+  currentConfig = config;
   const { root: ROOT, getPageUrl } = config;
   console.log('[Highlighter][Annotator] Init; root:', ROOT);
 
@@ -20,43 +23,45 @@ export async function init(config: AnnotatorConfig): Promise<void> {
   pendingAnnotations = failed;
   console.log(`[Highlighter][Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}, pending: ${failed.length}`);
 
+  applyHighlightVisibility();
   wireButtons(ROOT, config);
 }
 
-function wireButtons(ROOT: Element, config: AnnotatorConfig): void {
-  const addBtn = document.getElementById('add-annotation');
-  const deleteBtn = document.getElementById('annotator-btn-delete');
+/**
+ * Called by the selection toolbar when the user clicks "Highlight".
+ * Validates the range and creates the annotation with the chosen color.
+ */
+export async function performAnnotation(range: Range, color: string): Promise<void> {
+  if (!currentConfig) return;
+  const { root: ROOT, getPageUrl } = currentConfig;
   const addResult = document.getElementById('add-annotation-result');
 
-  if (!addBtn || !deleteBtn || !addResult) {
-    console.warn('[Highlighter][Annotator] Missing button elements (add-annotation, annotator-btn-delete, add-annotation-result)');
+  if (!ROOT.contains(range.commonAncestorContainer)) {
+    if (addResult) addResult.textContent = 'Selection outside annotatable area.';
     return;
   }
 
-  if ((addBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired) return;
-  (addBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired = true;
+  try {
+    const annotation = await annotate(range, ROOT, getPageUrl(), undefined, color);
+    if (addResult) addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
+    console.log('[Highlighter][Annotator] Annotation saved:', annotation);
+  } catch (e) {
+    if (addResult) addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
+    console.error('[Highlighter][Annotator] Save error:', e);
+  }
+}
 
-  addBtn.addEventListener('click', async () => {
-    addResult.textContent = '';
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
-      addResult.textContent = 'Select text first.';
-      return;
-    }
-    const range = sel.getRangeAt(0).cloneRange();
-    if (!ROOT.contains(range.commonAncestorContainer)) {
-      addResult.textContent = 'Selection outside annotatable area.';
-      return;
-    }
-    try {
-      const annotation = await annotate(range, ROOT, config.getPageUrl());
-      addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
-      console.log('[Highlighter][Annotator] Annotation saved:', annotation);
-    } catch (e) {
-      addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[Highlighter][Annotator] Save error:', e);
-    }
-  });
+function wireButtons(_root: Element, config: AnnotatorConfig): void {
+  const deleteBtn = document.getElementById('annotator-btn-delete');
+  const addResult = document.getElementById('add-annotation-result');
+
+  if (!deleteBtn || !addResult) {
+    console.warn('[Highlighter][Annotator] Missing button elements');
+    return;
+  }
+
+  if ((deleteBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired) return;
+  (deleteBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired = true;
 
   deleteBtn.addEventListener('click', async () => {
     if (!selectedAnnotationId) {
@@ -84,6 +89,7 @@ export async function reattachHighlights(config: AnnotatorConfig): Promise<void>
   if (result.total > 0) {
     console.log(`[Highlighter][Annotator] Re-attach: ${result.anchored}/${result.total} highlights, pending: ${result.failed.length}`);
   }
+  applyHighlightVisibility();
 }
 
 /**
@@ -95,6 +101,7 @@ export function retryPending(config: AnnotatorConfig): void {
   if (pendingAnnotations.length === 0) return;
   const stillFailed = retryFailed(pendingAnnotations, config.root);
   pendingAnnotations = stillFailed;
+  applyHighlightVisibility();
 }
 
 export function hasPending(): boolean {

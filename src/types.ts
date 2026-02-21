@@ -20,6 +20,7 @@ export interface Annotation {
   pageUrl?: string;
   baseUrl?: string;
   body?: { type: string; value: string };
+  color?: string;
   created?: string;
 }
 

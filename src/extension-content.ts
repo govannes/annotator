@@ -1,6 +1,6 @@
 import { ContentEvent, ContentObserver } from './engine/content-observer';
-import { hasPending, init, reattachHighlights, retryPending } from './main';
-import { POPUP_PANEL_ID, injectToolbar, PANEL_ID, setupShowDbButton } from './panel';
+import { hasPending, init, performAnnotation, reattachHighlights, retryPending } from './main';
+import { initSelectionToolbar, injectToolbar, PANEL_ID, POPUP_PANEL_ID, SELECTION_TOOLBAR_ID, setupShowDbButton } from './panel';
 import './style.css';
 
 const REINJECT_DEBOUNCE_MS = 500;
@@ -11,6 +11,7 @@ function injectPanel(): boolean {
   const didInject = injectToolbar();
   if (didInject) {
     setupShowDbButton();
+    initSelectionToolbar((range, color) => performAnnotation(range, color));
   }
   return didInject;
 }
@@ -174,6 +175,7 @@ function startContentObserver(): void {
     ignoreSelectors: [
       `#${PANEL_ID}`,
       `#${POPUP_PANEL_ID}`,
+      `#${SELECTION_TOOLBAR_ID}`,
       '.annotator-highlight',
     ],
     onContent: handleContentEvent,

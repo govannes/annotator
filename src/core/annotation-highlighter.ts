@@ -1,7 +1,7 @@
+import type { AnchorResult, Annotation } from '../types';
 import { DomAnchorer } from './anchorers/dom-anchorer';
-import { highlightRange } from './highlighters/dom-highlighter';
-import type { Annotation, AnchorResult } from '../types';
 import { Segment } from './dom-text-mapper';
+import { highlightRange } from './highlighters/dom-highlighter';
 
 export class AnnotationHighlighter {
   private readonly anchorer = new DomAnchorer();
@@ -18,6 +18,6 @@ export class AnnotationHighlighter {
   }
 
   highlightRange(range: Range): boolean {
-    return highlightRange(range, this.annotation.id);
+    return highlightRange(range, this.annotation.id, this.annotation.color);
   }
 }

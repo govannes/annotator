@@ -4,7 +4,8 @@ const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
 export function highlightRange(
   range: Range,
-  annotationId: string
+  annotationId: string,
+  color?: string,
 ): boolean {
   if (range.collapsed) return false;
   const root = range.commonAncestorContainer;
@@ -14,9 +15,10 @@ export function highlightRange(
 
   if (textSegments.length === 0) return false;
 
+  const appliedColor = color ?? HIGHLIGHT_COLOR;
   let firstSpan: HTMLSpanElement | undefined;
   for (let i = textSegments.length - 1; i >= 0; i--) {
-    const span = wrapTextSegment(textSegments[i]!, annotationId);
+    const span = wrapTextSegment(textSegments[i]!, annotationId, appliedColor);
     if (span && firstSpan === undefined) firstSpan = span;
   }
   return firstSpan !== undefined;
@@ -103,6 +105,7 @@ function collectHighlightRanges(
 function wrapTextSegment(
   segment: TextSegment,
   annotationId: string,
+  color: string,
 ): HTMLSpanElement | null {
   const { node, start, end } = segment;
   const midText = node.data.slice(start, end);
@@ -113,7 +116,7 @@ function wrapTextSegment(
   span.className = HIGHLIGHT_CLASS;
   span.setAttribute('data-annotation-id', annotationId);
   span.setAttribute('data-highlight-type', HIGHLIGHT_TYPE);
-  span.style.setProperty('background-color', HIGHLIGHT_COLOR, 'important');
+  span.style.setProperty('background-color', color, 'important');
 
   const beforeText = node.data.slice(0, start);
   const afterText = node.data.slice(end);

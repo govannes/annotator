@@ -20,7 +20,11 @@
   #annotator-popup-panel,
   #annotator-popup-panel *,
   #annotator-popup-panel *::before,
-  #annotator-popup-panel *::after {
+  #annotator-popup-panel *::after,
+  #annotator-selection-toolbar,
+  #annotator-selection-toolbar *,
+  #annotator-selection-toolbar *::before,
+  #annotator-selection-toolbar *::after {
     box-sizing: border-box;
     border-width: 0;
     border-style: solid;
@@ -31,13 +35,15 @@
 
   #annotator-extension-panel svg,
   #annotator-db-overlay svg,
-  #annotator-popup-panel svg {
+  #annotator-popup-panel svg,
+  #annotator-selection-toolbar svg {
     display: block;
   }
 
   #annotator-extension-panel button,
   #annotator-db-overlay button,
-  #annotator-popup-panel button {
+  #annotator-popup-panel button,
+  #annotator-selection-toolbar button {
     font-family: inherit;
     font-size: inherit;
     line-height: inherit;

@@ -17,7 +17,13 @@ export interface LoadResult {
   failed: Annotation[];
 }
 
-export async function annotate(range: Range, root: Element, pageUrl: string, body?: { type: string; value: string }): Promise<Annotation> {
+export async function annotate(
+  range: Range,
+  root: Element,
+  pageUrl: string,
+  body?: { type: string; value: string },
+  color?: string,
+): Promise<Annotation> {
 
   const { text: docText, segments } = build(root);
   const selector = new DomAnchorer().buildSelectors(range, root, segments, docText);
@@ -28,11 +34,12 @@ export async function annotate(range: Range, root: Element, pageUrl: string, bod
     pageUrl,
     created: new Date().toISOString(),
     body,
+    color,
   };
 
   await saveAnnotation(annotation);
 
-  highlightRange(range, annotation.id);
+  highlightRange(range, annotation.id, color);
 
   return annotation;
 }

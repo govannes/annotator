@@ -5,6 +5,8 @@ export const TOOLBAR_OFFSET_STORAGE_KEY = 'annotatorToolbarOffsetX';
 export const DB_OVERLAY_ID = 'annotator-db-overlay';
 export const POPUP_PANEL_ID = 'annotator-popup-panel';
 export const PALETTE_STORAGE_KEY = 'annotator_palette_config';
+export const SELECTION_TOOLBAR_ID = 'annotator-selection-toolbar';
+export const ACTIVE_HIGHLIGHT_COLOR_KEY = 'annotator_active_highlight_color';
 
 export interface HighlightColorEntry {
   id: string;
