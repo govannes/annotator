@@ -1,4 +1,4 @@
-import { POPUP_PANEL_ID, TOOLBAR_ID, PALETTE_STORAGE_KEY, DEFAULT_PALETTE, type PaletteConfig } from './constants';
+import { DEFAULT_PALETTE, PALETTE_STORAGE_KEY, POPUP_PANEL_ID, TOOLBAR_ID, type PaletteConfig } from './constants';
 
 let currentPanelId: string | null = null;
 let outsideClickHandler: ((e: MouseEvent) => void) | null = null;

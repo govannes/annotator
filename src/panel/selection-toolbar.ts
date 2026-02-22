@@ -1,7 +1,7 @@
 import {
-  SELECTION_TOOLBAR_ID,
   ACTIVE_HIGHLIGHT_COLOR_KEY,
   PANEL_ID,
+  SELECTION_TOOLBAR_ID,
   type HighlightColorEntry,
 } from './constants';
 import { getHighlightColors } from './palette-panel';

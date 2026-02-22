@@ -1,8 +1,8 @@
 import {
-  PALETTE_STORAGE_KEY,
   DEFAULT_PALETTE,
-  type PaletteConfig,
+  PALETTE_STORAGE_KEY,
   type HighlightColorEntry,
+  type PaletteConfig,
 } from './constants';
 import { ICONS } from './icons';
 import { openPanel, refreshPanelTheme } from './popup-panel';
@@ -45,144 +45,295 @@ function colorToHex(color: string): string {
   return '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
 }
 
-// ─── Styles (referencing --ap-* CSS vars set on the popup panel root) ────────
+// ─── Styles ──────────────────────────────────────────────────────────────────
 
 const SECTION_TITLE =
   'text-[11px] font-semibold uppercase tracking-wider text-[var(--ap-muted)] mb-2';
 
-const COLOR_ROW =
-  'flex items-center gap-2.5 mb-2 last:mb-0';
-
 const SWATCH_INSET = 'inset 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.12)';
 
-const COLOR_INPUT_WRAP =
-  'relative w-7 h-7 rounded-md overflow-hidden border cursor-pointer shrink-0 transition-colors';
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
 
-const COLOR_INPUT =
-  'absolute inset-0 w-full h-full opacity-0 cursor-pointer';
+let tooltipEl: HTMLElement | null = null;
 
-const COLOR_LABEL =
-  'text-[12px] text-[var(--ap-text)] select-none opacity-80';
+function showTooltipAt(anchor: HTMLElement, text: string): void {
+  hideTooltipEl();
+  const tip = document.createElement('div');
+  tip.className =
+    'fixed z-[2147483647] py-1 px-2.5 rounded text-[11px] font-sans ' +
+    'whitespace-nowrap pointer-events-none select-none';
+  tip.style.backgroundColor = '#1a1a1a';
+  tip.style.color = '#eee';
+  tip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+  tip.textContent = text;
+  document.body.appendChild(tip);
 
-const TAG_INPUT =
-  'bg-transparent border-none text-[12px] text-[var(--ap-input-text)] outline-none ' +
-  'w-full py-0.5 transition-colors placeholder:text-[var(--ap-faint)]';
+  const ar = anchor.getBoundingClientRect();
+  const tw = tip.offsetWidth;
+  const th = tip.offsetHeight;
+  const gap = 6;
 
-const ICON_BTN_DANGER =
-  'w-6 h-6 rounded-md border-none bg-transparent text-[var(--ap-icon-idle)] cursor-pointer inline-flex ' +
-  'items-center justify-center transition-colors shrink-0';
+  let left = ar.left + ar.width / 2 - tw / 2;
+  left = Math.max(4, Math.min(left, window.innerWidth - tw - 4));
+  let top = ar.top - th - gap;
+  if (top < 4) top = ar.bottom + gap;
 
-const ADD_BTN =
-  'flex items-center gap-1.5 text-[12px] text-[var(--ap-muted)] bg-transparent border border-dashed ' +
-  'rounded-lg py-1.5 px-3 cursor-pointer transition-colors w-full justify-center mt-2';
-
-const SAVE_BTN =
-  'flex items-center justify-center gap-1.5 text-[12px] font-medium text-white bg-[#2e7d32] ' +
-  'border-none rounded-lg py-2 px-4 cursor-pointer hover:bg-[#256d29] transition-colors ' +
-  'shadow-sm w-full';
-
-const RESET_BTN =
-  'flex items-center justify-center gap-1.5 text-[11px] text-[var(--ap-faint)] bg-transparent ' +
-  'border-none cursor-pointer transition-colors py-1';
-
-// ─── Rendering ───────────────────────────────────────────────────────────────
-
-function buildColorRow(
-  label: string,
-  color: string,
-  onChange: (hex: string) => void,
-): HTMLDivElement {
-  const row = document.createElement('div');
-  row.className = COLOR_ROW;
-
-  const swatch = document.createElement('div');
-  swatch.className = COLOR_INPUT_WRAP;
-  swatch.style.backgroundColor = color;
-  swatch.style.borderColor = 'var(--ap-input-border)';
-  swatch.style.boxShadow = SWATCH_INSET;
-
-  const input = document.createElement('input');
-  input.type = 'color';
-  input.className = COLOR_INPUT;
-  input.value = colorToHex(color);
-  input.addEventListener('input', () => {
-    swatch.style.backgroundColor = input.value;
-    onChange(input.value);
-  });
-
-  swatch.appendChild(input);
-  row.appendChild(swatch);
-
-  const lbl = document.createElement('span');
-  lbl.className = COLOR_LABEL;
-  lbl.textContent = label;
-  row.appendChild(lbl);
-
-  return row;
+  tip.style.left = `${left}px`;
+  tip.style.top = `${top}px`;
+  tooltipEl = tip;
 }
 
-function buildHighlightRow(
-  entry: HighlightColorEntry,
-  isDefault: boolean,
-  onColorChange: (hex: string) => void,
-  onTagChange: (tag: string) => void,
-  onDelete: (() => void) | null,
-): HTMLDivElement {
-  const row = document.createElement('div');
-  row.className =
-    'flex items-center gap-2 py-1.5 px-2 rounded-lg mb-1.5 last:mb-0 ' +
-    'group transition-colors';
-  row.style.backgroundColor = 'var(--ap-surface)';
-  row.style.border = '1px solid var(--ap-border)';
+function hideTooltipEl(): void {
+  if (tooltipEl) {
+    tooltipEl.remove();
+    tooltipEl = null;
+  }
+}
 
-  const swatch = document.createElement('div');
-  swatch.className = COLOR_INPUT_WRAP;
-  swatch.style.backgroundColor = entry.color;
-  swatch.style.borderColor = 'var(--ap-input-border)';
-  swatch.style.boxShadow = SWATCH_INSET;
+// ─── Inline Editor Popover ───────────────────────────────────────────────────
+
+let activeEditor: HTMLElement | null = null;
+
+function closeEditor(): void {
+  if (activeEditor) {
+    activeEditor.remove();
+    activeEditor = null;
+  }
+}
+
+interface EditorOpts {
+  color: string;
+  label: string;
+  labelEditable: boolean;
+  onSave: (hex: string, label: string) => void;
+  onDelete: (() => void) | null;
+  anchor: HTMLElement;
+  container: HTMLElement;
+  config: PaletteConfig;
+}
+
+function openEditor(opts: EditorOpts): void {
+  closeEditor();
+
+  const editor = document.createElement('div');
+  editor.className =
+    'rounded-lg overflow-hidden mt-3 mb-1';
+  editor.style.backgroundColor = 'var(--ap-surface)';
+  editor.style.border = '1px solid var(--ap-border)';
+
+  const inner = document.createElement('div');
+  inner.className = 'p-3 flex flex-col gap-3';
+
+  // Color picker row
+  const colorRow = document.createElement('div');
+  colorRow.className = 'flex items-center gap-3';
+
+  const swatchWrap = document.createElement('div');
+  swatchWrap.className = 'relative w-9 h-9 rounded-lg overflow-hidden cursor-pointer shrink-0';
+  swatchWrap.style.backgroundColor = opts.color;
+  swatchWrap.style.boxShadow = SWATCH_INSET;
+  swatchWrap.style.border = '1px solid var(--ap-input-border)';
 
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
-  colorInput.className = COLOR_INPUT;
-  colorInput.value = colorToHex(entry.color);
-  colorInput.addEventListener('input', () => {
-    swatch.style.backgroundColor = colorInput.value;
-    onColorChange(colorInput.value);
-  });
-  swatch.appendChild(colorInput);
-  row.appendChild(swatch);
+  colorInput.className = 'absolute inset-0 w-full h-full opacity-0 cursor-pointer';
+  colorInput.value = colorToHex(opts.color);
+  swatchWrap.appendChild(colorInput);
+  colorRow.appendChild(swatchWrap);
 
-  const tagWrap = document.createElement('div');
-  tagWrap.className = 'flex-1 min-w-0';
+  const hexField = document.createElement('div');
+  hexField.className = 'flex-1 min-w-0';
+  const hexFieldLabel = document.createElement('div');
+  hexFieldLabel.className = 'text-[10px] text-[var(--ap-muted)] uppercase tracking-wider mb-1';
+  hexFieldLabel.textContent = 'Hex';
+  hexField.appendChild(hexFieldLabel);
 
-  const tagInput = document.createElement('input');
-  tagInput.type = 'text';
-  tagInput.className = TAG_INPUT;
-  tagInput.value = entry.tag;
-  tagInput.placeholder = 'Tag name…';
-  tagInput.maxLength = 30;
-  tagInput.style.borderBottom = '1px solid var(--ap-input-border)';
-  if (isDefault) {
-    tagInput.disabled = true;
-    tagInput.style.color = 'var(--ap-faint)';
-    tagInput.style.cursor = 'default';
+  const hexInput = document.createElement('input');
+  hexInput.type = 'text';
+  hexInput.className =
+    'text-[12px] text-[var(--ap-input-text)] font-mono outline-none ' +
+    'w-full py-1.5 px-2.5 rounded-md transition-colors placeholder:text-[var(--ap-faint)]';
+  hexInput.style.border = '1px solid var(--ap-border-md)';
+  hexInput.style.backgroundColor = 'var(--ap-hover)';
+  hexInput.value = colorToHex(opts.color);
+  hexInput.placeholder = '#000000';
+  hexInput.maxLength = 7;
+  hexInput.spellcheck = false;
+
+  function normalizeHex(raw: string): string | null {
+    let v = raw.trim();
+    if (!v.startsWith('#')) v = '#' + v;
+    v = v.toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(v)) return v;
+    if (/^#[0-9a-f]{3}$/.test(v)) {
+      return '#' + v[1]! + v[1]! + v[2]! + v[2]! + v[3]! + v[3]!;
+    }
+    return null;
   }
-  tagInput.addEventListener('input', () => onTagChange(tagInput.value));
-  tagWrap.appendChild(tagInput);
-  row.appendChild(tagWrap);
 
-  if (onDelete) {
+  colorInput.addEventListener('input', () => {
+    swatchWrap.style.backgroundColor = colorInput.value;
+    hexInput.value = colorInput.value;
+    hexInput.style.borderColor = 'var(--ap-border-md)';
+  });
+
+  hexInput.addEventListener('input', () => {
+    const hex = normalizeHex(hexInput.value);
+    if (hex) {
+      colorInput.value = hex;
+      swatchWrap.style.backgroundColor = hex;
+      hexInput.style.borderColor = 'var(--ap-border-md)';
+    } else {
+      hexInput.style.borderColor = 'var(--ap-danger)';
+    }
+  });
+
+  hexInput.addEventListener('blur', () => {
+    const hex = normalizeHex(hexInput.value);
+    if (hex) {
+      hexInput.value = hex;
+      colorInput.value = hex;
+      swatchWrap.style.backgroundColor = hex;
+    }
+    hexInput.style.borderColor = 'var(--ap-border-md)';
+  });
+
+  hexInput.addEventListener('focus', () => {
+    const hex = normalizeHex(hexInput.value);
+    hexInput.style.borderColor = hex ? 'var(--ap-input-focus)' : 'var(--ap-danger)';
+  });
+
+  hexField.appendChild(hexInput);
+  colorRow.appendChild(hexField);
+  inner.appendChild(colorRow);
+
+  // Label input
+  const labelField = document.createElement('div');
+  const labelFieldLabel = document.createElement('div');
+  labelFieldLabel.className = 'text-[10px] text-[var(--ap-muted)] uppercase tracking-wider mb-1';
+  labelFieldLabel.textContent = 'Label';
+  labelField.appendChild(labelFieldLabel);
+
+  const labelInput = document.createElement('input');
+  labelInput.type = 'text';
+  labelInput.className =
+    'text-[12px] text-[var(--ap-input-text)] outline-none ' +
+    'w-full py-1.5 px-2.5 rounded-md transition-colors placeholder:text-[var(--ap-faint)]';
+  labelInput.style.border = '1px solid var(--ap-border-md)';
+  labelInput.style.backgroundColor = 'var(--ap-hover)';
+  labelInput.value = opts.label;
+  labelInput.placeholder = 'Label…';
+  labelInput.maxLength = 30;
+
+  if (!opts.labelEditable) {
+    labelInput.disabled = true;
+    labelInput.style.opacity = '0.6';
+    labelInput.style.cursor = 'default';
+  }
+
+  labelInput.addEventListener('focus', () => {
+    labelInput.style.borderColor = 'var(--ap-input-focus)';
+  });
+  labelInput.addEventListener('blur', () => {
+    labelInput.style.borderColor = 'var(--ap-border-md)';
+  });
+
+  labelField.appendChild(labelInput);
+  inner.appendChild(labelField);
+
+  // Action buttons
+  const actions = document.createElement('div');
+  actions.className = 'flex items-center gap-2';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.type = 'button';
+  saveBtn.className =
+    'flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-white ' +
+    'bg-[#2e7d32] border-none rounded-md py-1.5 cursor-pointer hover:bg-[#256d29] transition-colors';
+  saveBtn.innerHTML = `${ICONS.check} <span>Save</span>`;
+  saveBtn.addEventListener('click', () => {
+    const hex = normalizeHex(hexInput.value) ?? colorInput.value;
+    opts.onSave(hex, labelInput.value);
+    savePalette(opts.config);
+    applySystemColors(opts.config);
+    closeEditor();
+  });
+  actions.appendChild(saveBtn);
+
+  if (opts.onDelete) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
-    deleteBtn.className = ICON_BTN_DANGER;
+    deleteBtn.className =
+      'flex items-center justify-center w-8 h-8 rounded-md border-none ' +
+      'bg-transparent text-[var(--ap-icon-idle)] cursor-pointer transition-colors shrink-0';
     deleteBtn.title = 'Remove color';
     deleteBtn.innerHTML = ICONS.trash;
-    deleteBtn.addEventListener('click', onDelete);
-    row.appendChild(deleteBtn);
+    deleteBtn.style.color = 'var(--ap-danger)';
+    deleteBtn.addEventListener('click', () => {
+      opts.onDelete!();
+      closeEditor();
+    });
+    actions.appendChild(deleteBtn);
   }
 
-  return row;
+  inner.appendChild(actions);
+  editor.appendChild(inner);
+
+  opts.container.appendChild(editor);
+  activeEditor = editor;
+
+  colorInput.click();
 }
+
+// ─── Swatch Builder ──────────────────────────────────────────────────────────
+
+function buildSwatch(
+  color: string,
+  label: string,
+  onClick: () => void,
+): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className =
+    'w-7 h-7 rounded-full border-none cursor-pointer shrink-0 ' +
+    'transition-all duration-150 hover:scale-110';
+  btn.style.backgroundColor = color;
+  btn.style.boxShadow = SWATCH_INSET;
+
+  btn.addEventListener('mouseenter', () => showTooltipAt(btn, label));
+  btn.addEventListener('mouseleave', () => hideTooltipEl());
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideTooltipEl();
+    onClick();
+  });
+
+  return btn;
+}
+
+function buildAddButton(onClick: () => void): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className =
+    'w-7 h-7 rounded-full border border-dashed cursor-pointer shrink-0 ' +
+    'transition-all duration-150 hover:scale-110 inline-flex items-center justify-center';
+  btn.style.borderColor = 'var(--ap-border-md)';
+  btn.style.color = 'var(--ap-muted)';
+  btn.innerHTML =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></svg>';
+
+  btn.addEventListener('mouseenter', () => showTooltipAt(btn, 'Add color'));
+  btn.addEventListener('mouseleave', () => hideTooltipEl());
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideTooltipEl();
+    onClick();
+  });
+
+  return btn;
+}
+
+// ─── Rendering ───────────────────────────────────────────────────────────────
 
 function renderPaletteContent(body: HTMLElement): void {
   const config = loadPalette();
@@ -198,22 +349,34 @@ function renderPaletteContent(body: HTMLElement): void {
   sysTitle.textContent = 'System Colors';
   sysSection.appendChild(sysTitle);
 
-  const sysDesc = document.createElement('div');
-  sysDesc.className = 'text-[11px] text-[var(--ap-subtle)] mb-3 leading-relaxed';
-  sysDesc.textContent = 'Toolbar appearance — text adapts automatically.';
-  sysSection.appendChild(sysDesc);
+  const sysGrid = document.createElement('div');
+  sysGrid.className = 'flex flex-wrap gap-2 items-center';
 
-  sysSection.appendChild(
-    buildColorRow('Icon color', config.system.iconColor, (hex) => {
-      config.system.iconColor = hex;
-    }),
-  );
-  sysSection.appendChild(
-    buildColorRow('Background', config.system.backgroundColor, (hex) => {
-      config.system.backgroundColor = hex;
-    }),
-  );
+  const sysColors: { key: 'iconColor' | 'backgroundColor'; label: string }[] = [
+    { key: 'iconColor', label: 'Icon color' },
+    { key: 'backgroundColor', label: 'Background' },
+  ];
 
+  for (const sc of sysColors) {
+    const swatch = buildSwatch(config.system[sc.key], sc.label, () => {
+      openEditor({
+        color: config.system[sc.key],
+        label: sc.label,
+        labelEditable: false,
+        anchor: swatch,
+        container: sysSection,
+        onSave: (hex) => {
+          config.system[sc.key] = hex;
+          swatch.style.backgroundColor = hex;
+        },
+        onDelete: null,
+        config,
+      });
+    });
+    sysGrid.appendChild(swatch);
+  }
+
+  sysSection.appendChild(sysGrid);
   body.appendChild(sysSection);
 
   // ── Divider ───────────────────────────────────────────────────────────────
@@ -231,53 +394,53 @@ function renderPaletteContent(body: HTMLElement): void {
   hlTitle.textContent = 'Highlight Colors';
   hlSection.appendChild(hlTitle);
 
-  const hlDesc = document.createElement('div');
-  hlDesc.className = 'text-[11px] text-[var(--ap-subtle)] mb-3 leading-relaxed';
-  hlDesc.textContent = 'Create tagged colors for different highlight types.';
-  hlSection.appendChild(hlDesc);
-
-  const hlList = document.createElement('div');
+  const hlGrid = document.createElement('div');
+  hlGrid.className = 'flex flex-wrap gap-2 items-center';
 
   function rebuildHighlights(): void {
-    hlList.innerHTML = '';
+    hlGrid.innerHTML = '';
     for (let i = 0; i < config.highlights.length; i++) {
       const entry = config.highlights[i]!;
       const isDefault = entry.id === 'default';
-      hlList.appendChild(
-        buildHighlightRow(
-          entry,
-          isDefault,
-          (hex) => { entry.color = hex; },
-          (tag) => { entry.tag = tag; },
-          isDefault
+      const label = entry.tag || entry.id;
+
+      const swatch = buildSwatch(entry.color, label, () => {
+        openEditor({
+          color: entry.color,
+          label: entry.tag,
+          labelEditable: !isDefault,
+          anchor: swatch,
+          container: hlSection,
+          onSave: (hex, tag) => {
+            entry.color = hex;
+            entry.tag = tag;
+            swatch.style.backgroundColor = hex;
+          },
+          config,
+          onDelete: isDefault
             ? null
             : () => {
                 config.highlights.splice(i, 1);
                 rebuildHighlights();
               },
-        ),
-      );
+        });
+      });
+      hlGrid.appendChild(swatch);
     }
+
+    const addBtn = buildAddButton(() => {
+      const newEntry: HighlightColorEntry = { id: uid(), color: '#4fc3f7', tag: '' };
+      config.highlights.push(newEntry);
+      rebuildHighlights();
+      const swatches = hlGrid.querySelectorAll<HTMLButtonElement>('button:not(:last-child)');
+      const last = swatches[swatches.length - 1];
+      last?.click();
+    });
+    hlGrid.appendChild(addBtn);
   }
 
   rebuildHighlights();
-  hlSection.appendChild(hlList);
-
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = ADD_BTN;
-  addBtn.style.borderColor = 'var(--ap-border-md)';
-  addBtn.innerHTML = `${ICONS.plus} <span>Add color</span>`;
-  addBtn.addEventListener('click', () => {
-    config.highlights.push({ id: uid(), color: '#4fc3f7', tag: '' });
-    rebuildHighlights();
-    const lastInput = hlList.querySelector<HTMLInputElement>(
-      '.group:last-child input[type="text"]',
-    );
-    lastInput?.focus();
-  });
-  hlSection.appendChild(addBtn);
-
+  hlSection.appendChild(hlGrid);
   body.appendChild(hlSection);
 
   // ── Footer ────────────────────────────────────────────────────────────────
@@ -285,47 +448,9 @@ function renderPaletteContent(body: HTMLElement): void {
   footer.className = 'mt-4 pt-3 border-t';
   footer.style.borderColor = 'var(--ap-border)';
 
-  const saveBtn = document.createElement('button');
-  saveBtn.type = 'button';
-  saveBtn.className = SAVE_BTN;
-  saveBtn.innerHTML = `${ICONS.check} <span>Save</span>`;
-  saveBtn.addEventListener('click', () => {
-    savePalette(config);
-    applySystemColors(config);
-    showToast(body, 'Palette saved');
-  });
-  footer.appendChild(saveBtn);
 
-  const resetBtn = document.createElement('button');
-  resetBtn.type = 'button';
-  resetBtn.className = RESET_BTN;
-  resetBtn.innerHTML = `${ICONS.reset} <span>Reset to defaults</span>`;
-  resetBtn.addEventListener('click', () => {
-    savePalette(structuredClone(DEFAULT_PALETTE));
-    applySystemColors(DEFAULT_PALETTE);
-    renderPaletteContent(body);
-  });
-  footer.appendChild(resetBtn);
 
   body.appendChild(footer);
-}
-
-function showToast(container: HTMLElement, message: string): void {
-  const existing = container.querySelector('.palette-toast');
-  if (existing) existing.remove();
-
-  const toast = document.createElement('div');
-  toast.className =
-    'palette-toast fixed left-1/2 bottom-[140px] z-[2147483647] -translate-x-1/2 ' +
-    'bg-[#333] text-white text-[12px] py-1.5 px-4 rounded-full shadow-lg ' +
-    'opacity-0 transition-opacity duration-200';
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => { toast.style.opacity = '1'; });
-  setTimeout(() => {
-    toast.style.opacity = '0';
-    setTimeout(() => toast.remove(), 200);
-  }, 1500);
 }
 
 // ─── Color math (WCAG relative luminance) ────────────────────────────────────

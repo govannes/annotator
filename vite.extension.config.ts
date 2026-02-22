@@ -1,7 +1,7 @@
-import { resolve, dirname } from 'path';
-import { defineConfig } from 'vite';
-import { copyFileSync, mkdirSync, existsSync } from 'fs';
 import tailwindcss from '@tailwindcss/vite';
+import { copyFileSync, existsSync, mkdirSync } from 'fs';
+import { resolve } from 'path';
+import { defineConfig } from 'vite';
 
 const outDir = 'dist-extension';
 
