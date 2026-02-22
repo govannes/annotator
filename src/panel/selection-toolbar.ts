@@ -52,9 +52,9 @@ function positionToolbar(el: HTMLElement, rect: DOMRect): void {
   let left = rect.left + rect.width / 2 - elWidth / 2;
   left = Math.max(4, Math.min(left, window.innerWidth - elWidth - 4));
 
-  let top = rect.top - elHeight - gap + window.scrollY;
-  if (rect.top - elHeight - gap < 0) {
-    top = rect.bottom + gap + window.scrollY;
+  let top = rect.top - elHeight - gap;
+  if (top < 0) {
+    top = rect.bottom + gap;
   }
 
   el.style.left = `${left}px`;
