@@ -7,11 +7,12 @@ import {
 import { ICONS } from './icons';
 import { applySavedPalette, openPalettePanel } from './palette-panel';
 import { openPanel, syncPanelOffset } from './popup-panel';
+import { $id, $q, $qa, getShadowRoot } from './shadow-host';
 
-const BTN = 'w-9 h-9 p-0 border-none rounded-lg bg-transparent text-[#444] cursor-pointer inline-flex items-center justify-center hover:bg-[#e8e8e8] hover:text-[#222] active:bg-[#ddd] [&>svg]:w-5 [&>svg]:h-5';
-const BTN_TOGGLE = 'w-9 h-9 p-0 border-none rounded-lg cursor-pointer inline-flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5';
-const BTN_TOGGLE_ACTIVE = 'bg-[#2e7d32] text-white shadow-sm';
-const BTN_TOGGLE_INACTIVE = 'bg-transparent text-[#444] hover:bg-[#e0e0e0]';
+const BTN = 'an:w-9 an:h-9 an:p-0 an:border-none an:rounded-lg an:bg-transparent an:text-[#444] an:cursor-pointer an:inline-flex an:items-center an:justify-center hover:an:bg-[#e8e8e8] hover:an:text-[#222] active:an:bg-[#ddd] [&>svg]:an:w-5 [&>svg]:an:h-5';
+const BTN_TOGGLE = 'an:w-9 an:h-9 an:p-0 an:border-none an:rounded-lg an:cursor-pointer an:inline-flex an:items-center an:justify-center [&>svg]:an:w-5 [&>svg]:an:h-5';
+const BTN_TOGGLE_ACTIVE = 'an:bg-[#2e7d32] an:text-white an:shadow-sm';
+const BTN_TOGGLE_INACTIVE = 'an:bg-transparent an:text-[#444] hover:an:bg-[#e0e0e0]';
 
 const HIGHLIGHT_DISABLED_KEY = 'annotator_highlight_disabled';
 const SAVED_COLOR_ATTR = 'data-annotator-saved-color';
@@ -60,13 +61,13 @@ export function applyHighlightVisibility(): void {
 function buildToolbarHTML(): string {
   return `
     <div id="${TOOLBAR_ID}"
-      class="fixed left-1/2 bottom-4 z-[2147483647] font-sans text-[13px] flex items-center bg-[#f0f0f0] text-[#333] py-1.5 pl-0.5 pr-1 rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.12)]"
+      class="an:fixed an:left-1/2 an:bottom-4 an:z-[2147483647] an:font-sans an:text-[13px] an:flex an:items-center an:bg-[#f0f0f0] an:text-[#333] an:py-1.5 an:pl-0.5 an:pr-1 an:rounded-xl an:shadow-[0_4px_20px_rgba(0,0,0,0.12)]"
       style="transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)))">
       <div id="${TOOLBAR_DRAG_HANDLE_ID}"
-        class="cursor-grab py-2 px-2 border-r text-[#aaa] flex items-center justify-center select-none"
+        class="an:cursor-grab an:py-2 an:px-2 an:border-r an:text-[#aaa] an:flex an:items-center an:justify-center an:select-none"
         title="Drag to move toolbar" data-divider>${ICONS.dragIndicator}</div>
-      <div class="flex items-center gap-1.5 px-2">
-        <div class="flex items-center bg-transparent border border-current rounded-lg p-0.5 gap-0.5" data-toggle-group="annotation-mode">
+      <div class="an:flex an:items-center an:gap-1.5 an:px-2">
+        <div class="an:flex an:items-center an:bg-transparent an:border an:border-current an:rounded-lg an:p-0.5 an:gap-0.5" data-toggle-group="annotation-mode">
           <button type="button" id="add-annotation" class="${BTN_TOGGLE} ${BTN_TOGGLE_ACTIVE}" title="Highlight selection" data-mode="highlight">${ICONS.highlight}</button>
           <button type="button" id="annotator-btn-ink" class="${BTN_TOGGLE} ${BTN_TOGGLE_INACTIVE}" title="Ink Selection" data-mode="ink">${ICONS.inkSelection}</button>
         </div>
@@ -78,13 +79,13 @@ function buildToolbarHTML(): string {
         <button type="button" id="annotator-btn-settings" class="${BTN}" title="Settings" data-panel="settings">${ICONS.settings}</button>
       </div>
     </div>
-    <div id="add-annotation-result" class="fixed -left-[9999px] pointer-events-none" aria-hidden="true"></div>
+    <div id="add-annotation-result" class="an:fixed an:-left-[9999px] an:pointer-events-none" aria-hidden="true"></div>
   `;
 }
 
 function setupToolbarDrag(): void {
-  const toolbar = document.getElementById(TOOLBAR_ID);
-  const handle = document.getElementById(TOOLBAR_DRAG_HANDLE_ID);
+  const toolbar = $id(TOOLBAR_ID);
+  const handle = $id(TOOLBAR_DRAG_HANDLE_ID);
   if (!toolbar || !handle) return;
 
   const pageKey = `${TOOLBAR_OFFSET_STORAGE_KEY}_${window.location.hostname}`;
@@ -137,7 +138,7 @@ export function getActiveMode(): 'highlight' | 'ink' {
 }
 
 function setupModeToggle(): void {
-  const group = document.querySelector('[data-toggle-group="annotation-mode"]');
+  const group = $q('[data-toggle-group="annotation-mode"]');
   if (!group) return;
 
   const buttons = group.querySelectorAll<HTMLButtonElement>('button[data-mode]');
@@ -170,7 +171,7 @@ const PANEL_PLACEHOLDERS: Record<string, string> = {
 };
 
 function setupPanelButtons(): void {
-  const buttons = document.querySelectorAll<HTMLButtonElement>(
+  const buttons = $qa<HTMLButtonElement>(
     '#' + TOOLBAR_ID + ' button[data-panel]',
   );
 
@@ -187,7 +188,7 @@ function setupPanelButtons(): void {
     btn.addEventListener('click', () => {
       openPanel(panelId, title, (body) => {
         body.innerHTML = `
-          <div class="flex items-center justify-center py-8 text-[var(--ap-muted)] text-sm">
+          <div class="an:flex an:items-center an:justify-center an:py-8 an:text-[var(--ap-muted)] an:text-sm">
             ${title} coming soon
           </div>
         `;
@@ -197,7 +198,7 @@ function setupPanelButtons(): void {
 }
 
 function setupVisibilityToggle(): void {
-  const btn = document.getElementById('annotator-btn-visibility');
+  const btn = $id('annotator-btn-visibility');
   console.log('[Annotator] setupVisibilityToggle — btn found:', !!btn);
   if (!btn) return;
 
@@ -225,12 +226,12 @@ function applyVisibilityStyle(btn: HTMLElement): void {
 }
 
 export function injectToolbar(): boolean {
-  if (document.getElementById(PANEL_ID)) return false;
+  if ($id(PANEL_ID)) return false;
 
   const panel = document.createElement('div');
   panel.id = PANEL_ID;
   panel.innerHTML = buildToolbarHTML();
-  document.body.appendChild(panel);
+  getShadowRoot().appendChild(panel);
 
   setupToolbarDrag();
   setupModeToggle();

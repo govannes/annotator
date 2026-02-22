@@ -1,7 +1,7 @@
 import { ContentEvent, ContentObserver } from './engine/content-observer';
 import { hasPending, init, performAnnotation, reattachHighlights, retryPending } from './main';
-import { initSelectionToolbar, injectToolbar, PANEL_ID, POPUP_PANEL_ID, SELECTION_TOOLBAR_ID, setupShowDbButton } from './panel';
-import './style.css';
+import { initSelectionToolbar, injectToolbar, setupShowDbButton } from './panel';
+import { initShadowHost } from './panel/shadow-host';
 
 const REINJECT_DEBOUNCE_MS = 500;
 
@@ -31,14 +31,14 @@ function scheduleReinject(): void {
   if (reinjectTimeout) return;
   reinjectTimeout = setTimeout(() => {
     reinjectTimeout = null;
-    if (document.getElementById(PANEL_ID)) return;
+    if (document.getElementById('annotator-shadow-host')) return;
     run();
   }, REINJECT_DEBOUNCE_MS);
 }
 
 function watchForPanelRemoval(): void {
   const observer = new MutationObserver(() => {
-    if (!document.getElementById(PANEL_ID)) scheduleReinject();
+    if (!document.getElementById('annotator-shadow-host')) scheduleReinject();
   });
   observer.observe(document.documentElement, {
     childList: true,
@@ -173,9 +173,7 @@ function startContentObserver(): void {
     minElements: 10,
     minTextChars: 20,
     ignoreSelectors: [
-      `#${PANEL_ID}`,
-      `#${POPUP_PANEL_ID}`,
-      `#${SELECTION_TOOLBAR_ID}`,
+      '#annotator-shadow-host',
       '.annotator-highlight',
     ],
     onContent: handleContentEvent,
@@ -187,6 +185,7 @@ function startContentObserver(): void {
 // ─── Bootstrap ──────────────────────────────────────────────────────────────
 
 function run(): void {
+  initShadowHost();
   const didInject = injectPanel();
   if (!didInject) return;
 

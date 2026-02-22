@@ -1,10 +1,10 @@
 import {
   ACTIVE_HIGHLIGHT_COLOR_KEY,
-  PANEL_ID,
   SELECTION_TOOLBAR_ID,
   type HighlightColorEntry,
 } from './constants';
 import { getHighlightColors } from './palette-panel';
+import { getShadowRoot } from './shadow-host';
 import { isHighlightDisabled } from './toolbar';
 
 export type OnHighlightCallback = (range: Range, color: string) => void;
@@ -48,13 +48,13 @@ function showTooltip(anchor: HTMLElement, text: string): void {
   hideTooltip();
   const tip = document.createElement('div');
   tip.className =
-    'fixed z-[2147483647] py-1 px-2.5 rounded text-[11px] font-sans ' +
-    'whitespace-nowrap pointer-events-none select-none';
+    'an:fixed an:z-[2147483647] an:py-1 an:px-2.5 an:rounded an:text-[11px] an:font-sans ' +
+    'an:whitespace-nowrap an:pointer-events-none an:select-none';
   tip.style.backgroundColor = '#1a1a1a';
   tip.style.color = '#eee';
   tip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
   tip.textContent = text;
-  document.body.appendChild(tip);
+  getShadowRoot().appendChild(tip);
 
   const ar = anchor.getBoundingClientRect();
   const tw = tip.offsetWidth;
@@ -105,19 +105,18 @@ function buildToolbar(): HTMLElement {
   const container = document.createElement('div');
   container.id = SELECTION_TOOLBAR_ID;
   container.className =
-    'fixed z-[2147483647] flex items-center gap-1.5 py-1.5 px-2.5 ' +
-    'rounded-lg shadow-[0_4px_16px_rgba(0,0,0,0.24)] font-sans text-[13px] select-none';
+    'an:fixed an:z-[2147483647] an:flex an:items-center an:gap-1.5 an:py-1.5 an:px-2.5 ' +
+    'an:rounded-lg an:shadow-[0_4px_16px_rgba(0,0,0,0.24)] an:font-sans an:text-[13px] an:select-none';
   container.style.backgroundColor = '#333';
   container.style.color = '#fff';
   container.style.pointerEvents = 'auto';
 
-  // Color swatches
   for (const entry of colors) {
     const swatch = document.createElement('button');
     swatch.type = 'button';
     swatch.className =
-      'w-5 h-5 rounded-full border-none cursor-pointer shrink-0 ' +
-      'transition-all duration-150 hover:scale-110';
+      'an:w-5 an:h-5 an:rounded-full an:border-none an:cursor-pointer an:shrink-0 ' +
+      'an:transition-all an:duration-150 hover:an:scale-110';
     swatch.style.backgroundColor = entry.color;
     swatch.style.boxShadow =
       entry.id === active.id
@@ -143,18 +142,16 @@ function buildToolbar(): HTMLElement {
     container.appendChild(swatch);
   }
 
-  // Separator
   const sep = document.createElement('div');
-  sep.className = 'w-px h-4 mx-0.5 shrink-0';
+  sep.className = 'an:w-px an:h-4 an:mx-0.5 an:shrink-0';
   sep.style.backgroundColor = 'rgba(255,255,255,0.25)';
   container.appendChild(sep);
 
-  // Highlight button
   const highlightBtn = document.createElement('button');
   highlightBtn.type = 'button';
   highlightBtn.className =
-    'border-none cursor-pointer text-white text-[13px] font-medium ' +
-    'bg-transparent px-1.5 py-0.5 rounded hover:bg-white/15 transition-colors whitespace-nowrap';
+    'an:border-none an:cursor-pointer an:text-white an:text-[13px] an:font-medium ' +
+    'an:bg-transparent an:px-1.5 an:py-0.5 an:rounded hover:an:bg-white/15 an:transition-colors an:whitespace-nowrap';
   highlightBtn.textContent = 'Highlight';
   highlightBtn.addEventListener('mousedown', (e) => {
     e.preventDefault();
@@ -198,11 +195,8 @@ function handleHighlightClick(): void {
 function isInsideExtension(node: Node): boolean {
   let el: Node | null = node;
   while (el) {
-    if (el instanceof HTMLElement) {
-      const id = el.id;
-      if (id === PANEL_ID || id === SELECTION_TOOLBAR_ID || id === 'annotator-popup-panel') {
-        return true;
-      }
+    if (el instanceof HTMLElement && el.id === 'annotator-shadow-host') {
+      return true;
     }
     el = el.parentNode;
   }
@@ -227,7 +221,7 @@ function showSelectionToolbar(): void {
   if (!activeColorId) activeColorId = loadActiveColorId();
 
   toolbarEl = buildToolbar();
-  document.body.appendChild(toolbarEl);
+  getShadowRoot().appendChild(toolbarEl);
 
   positionToolbar(toolbarEl, rect);
 }
@@ -242,7 +236,8 @@ export function hideSelectionToolbar(): void {
 }
 
 function onMouseUp(e: MouseEvent): void {
-  if (toolbarEl && toolbarEl.contains(e.target as Node)) return;
+  const path = e.composedPath();
+  if (toolbarEl && path.includes(toolbarEl)) return;
 
   setTimeout(() => {
     const sel = window.getSelection();
@@ -270,7 +265,8 @@ function onKeyUp(_e: KeyboardEvent): void {
 }
 
 function onMouseDown(e: MouseEvent): void {
-  if (toolbarEl && toolbarEl.contains(e.target as Node)) return;
+  const path = e.composedPath();
+  if (toolbarEl && path.includes(toolbarEl)) return;
   hideSelectionToolbar();
 }
 

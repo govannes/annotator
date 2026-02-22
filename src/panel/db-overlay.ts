@@ -1,5 +1,6 @@
 import { loadAnnotations } from '../core';
 import { openPanel } from './popup-panel';
+import { $id } from './shadow-host';
 
 function escapeHtml(s: string): string {
   return s
@@ -11,7 +12,7 @@ function escapeHtml(s: string): string {
 
 function buildEmptyCard(): HTMLDivElement {
   const empty = document.createElement('div');
-  empty.className = 'text-center py-5 text-[#999] font-sans text-sm';
+  empty.className = 'an:text-center an:py-5 an:text-[#999] an:font-sans an:text-sm';
   empty.textContent = 'No annotations for this page.';
   return empty;
 }
@@ -25,25 +26,25 @@ interface AnnotationCardData {
 
 function buildAnnotationCard(ann: AnnotationCardData): HTMLDivElement {
   const card = document.createElement('div');
-  card.className = 'bg-[#f5f5f5] border border-[#e0e0e0] rounded-lg py-2.5 px-3 mb-2';
+  card.className = 'an:bg-[#f5f5f5] an:border an:border-[#e0e0e0] an:rounded-lg an:py-2.5 an:px-3 an:mb-2';
   const quote = ann.selector?.exact ?? '(no quote)';
   const truncated = quote.length > 80 ? quote.slice(0, 80) + '...' : quote;
   const created = ann.created
     ? new Date(ann.created).toLocaleString()
     : 'unknown';
   card.innerHTML = `
-    <div class="text-[#333] mb-1 font-sans text-[13px]">"${escapeHtml(truncated)}"</div>
-    <div class="text-[#888] text-[11px]">
+    <div class="an:text-[#333] an:mb-1 an:font-sans an:text-[13px]">"${escapeHtml(truncated)}"</div>
+    <div class="an:text-[#888] an:text-[11px]">
       <span>id: ${escapeHtml(ann.id.slice(0, 8))}...</span>
-      <span class="ml-2">created: ${escapeHtml(created)}</span>
-      ${ann.highlightColor ? `<span class="ml-2 inline-block w-2.5 h-2.5 rounded-sm align-middle" style="background: ${ann.highlightColor}"></span>` : ''}
+      <span class="an:ml-2">created: ${escapeHtml(created)}</span>
+      ${ann.highlightColor ? `<span class="an:ml-2 an:inline-block an:w-2.5 an:h-2.5 an:rounded-sm an:align-middle" style="background: ${ann.highlightColor}"></span>` : ''}
     </div>
   `;
   return card;
 }
 
 export function setupShowDbButton(): void {
-  const btn = document.getElementById('annotator-btn-showdb');
+  const btn = $id('annotator-btn-showdb');
   if (!btn) return;
 
   btn.addEventListener('click', async () => {

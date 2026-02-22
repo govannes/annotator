@@ -6,6 +6,7 @@ import {
 } from './constants';
 import { ICONS } from './icons';
 import { openPanel, refreshPanelTheme } from './popup-panel';
+import { $id, getShadowRoot } from './shadow-host';
 
 function loadPalette(): PaletteConfig {
   try {
@@ -48,7 +49,7 @@ function colorToHex(color: string): string {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const SECTION_TITLE =
-  'text-[11px] font-semibold uppercase tracking-wider text-[var(--ap-muted)] mb-2';
+  'an:text-[11px] an:font-semibold an:uppercase an:tracking-wider an:text-[var(--ap-muted)] an:mb-2';
 
 const SWATCH_INSET = 'inset 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.12)';
 
@@ -60,13 +61,13 @@ function showTooltipAt(anchor: HTMLElement, text: string): void {
   hideTooltipEl();
   const tip = document.createElement('div');
   tip.className =
-    'fixed z-[2147483647] py-1 px-2.5 rounded text-[11px] font-sans ' +
-    'whitespace-nowrap pointer-events-none select-none';
+    'an:fixed an:z-[2147483647] an:py-1 an:px-2.5 an:rounded an:text-[11px] an:font-sans ' +
+    'an:whitespace-nowrap an:pointer-events-none an:select-none';
   tip.style.backgroundColor = '#1a1a1a';
   tip.style.color = '#eee';
   tip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
   tip.textContent = text;
-  document.body.appendChild(tip);
+  getShadowRoot().appendChild(tip);
 
   const ar = anchor.getBoundingClientRect();
   const tw = tip.offsetWidth;
@@ -117,42 +118,41 @@ function openEditor(opts: EditorOpts): void {
 
   const editor = document.createElement('div');
   editor.className =
-    'rounded-lg overflow-hidden mt-3 mb-1';
+    'an:rounded-lg an:overflow-hidden an:mt-3 an:mb-1';
   editor.style.backgroundColor = 'var(--ap-surface)';
   editor.style.border = '1px solid var(--ap-border)';
 
   const inner = document.createElement('div');
-  inner.className = 'p-3 flex flex-col gap-3';
+  inner.className = 'an:p-3 an:flex an:flex-col an:gap-3';
 
-  // Color picker row
   const colorRow = document.createElement('div');
-  colorRow.className = 'flex items-center gap-3';
+  colorRow.className = 'an:flex an:items-center an:gap-3';
 
   const swatchWrap = document.createElement('div');
-  swatchWrap.className = 'relative w-9 h-9 rounded-lg overflow-hidden cursor-pointer shrink-0';
+  swatchWrap.className = 'an:relative an:w-9 an:h-9 an:rounded-lg an:overflow-hidden an:cursor-pointer an:shrink-0';
   swatchWrap.style.backgroundColor = opts.color;
   swatchWrap.style.boxShadow = SWATCH_INSET;
   swatchWrap.style.border = '1px solid var(--ap-input-border)';
 
   const colorInput = document.createElement('input');
   colorInput.type = 'color';
-  colorInput.className = 'absolute inset-0 w-full h-full opacity-0 cursor-pointer';
+  colorInput.className = 'an:absolute an:inset-0 an:w-full an:h-full an:opacity-0 an:cursor-pointer';
   colorInput.value = colorToHex(opts.color);
   swatchWrap.appendChild(colorInput);
   colorRow.appendChild(swatchWrap);
 
   const hexField = document.createElement('div');
-  hexField.className = 'flex-1 min-w-0';
+  hexField.className = 'an:flex-1 an:min-w-0';
   const hexFieldLabel = document.createElement('div');
-  hexFieldLabel.className = 'text-[10px] text-[var(--ap-muted)] uppercase tracking-wider mb-1';
+  hexFieldLabel.className = 'an:text-[10px] an:text-[var(--ap-muted)] an:uppercase an:tracking-wider an:mb-1';
   hexFieldLabel.textContent = 'Hex';
   hexField.appendChild(hexFieldLabel);
 
   const hexInput = document.createElement('input');
   hexInput.type = 'text';
   hexInput.className =
-    'text-[12px] text-[var(--ap-input-text)] font-mono outline-none ' +
-    'w-full py-1.5 px-2.5 rounded-md transition-colors placeholder:text-[var(--ap-faint)]';
+    'an:text-[12px] an:text-[var(--ap-input-text)] an:font-mono an:outline-none ' +
+    'an:w-full an:py-1.5 an:px-2.5 an:rounded-md an:transition-colors placeholder:an:text-[var(--ap-faint)]';
   hexInput.style.border = '1px solid var(--ap-border-md)';
   hexInput.style.backgroundColor = 'var(--ap-hover)';
   hexInput.value = colorToHex(opts.color);
@@ -207,18 +207,17 @@ function openEditor(opts: EditorOpts): void {
   colorRow.appendChild(hexField);
   inner.appendChild(colorRow);
 
-  // Label input
   const labelField = document.createElement('div');
   const labelFieldLabel = document.createElement('div');
-  labelFieldLabel.className = 'text-[10px] text-[var(--ap-muted)] uppercase tracking-wider mb-1';
+  labelFieldLabel.className = 'an:text-[10px] an:text-[var(--ap-muted)] an:uppercase an:tracking-wider an:mb-1';
   labelFieldLabel.textContent = 'Label';
   labelField.appendChild(labelFieldLabel);
 
   const labelInput = document.createElement('input');
   labelInput.type = 'text';
   labelInput.className =
-    'text-[12px] text-[var(--ap-input-text)] outline-none ' +
-    'w-full py-1.5 px-2.5 rounded-md transition-colors placeholder:text-[var(--ap-faint)]';
+    'an:text-[12px] an:text-[var(--ap-input-text)] an:outline-none ' +
+    'an:w-full an:py-1.5 an:px-2.5 an:rounded-md an:transition-colors placeholder:an:text-[var(--ap-faint)]';
   labelInput.style.border = '1px solid var(--ap-border-md)';
   labelInput.style.backgroundColor = 'var(--ap-hover)';
   labelInput.value = opts.label;
@@ -241,15 +240,14 @@ function openEditor(opts: EditorOpts): void {
   labelField.appendChild(labelInput);
   inner.appendChild(labelField);
 
-  // Action buttons
   const actions = document.createElement('div');
-  actions.className = 'flex items-center gap-2';
+  actions.className = 'an:flex an:items-center an:gap-2';
 
   const saveBtn = document.createElement('button');
   saveBtn.type = 'button';
   saveBtn.className =
-    'flex-1 flex items-center justify-center gap-1.5 text-[12px] font-medium text-white ' +
-    'bg-[#2e7d32] border-none rounded-md py-1.5 cursor-pointer hover:bg-[#256d29] transition-colors';
+    'an:flex-1 an:flex an:items-center an:justify-center an:gap-1.5 an:text-[12px] an:font-medium an:text-white ' +
+    'an:bg-[#2e7d32] an:border-none an:rounded-md an:py-1.5 an:cursor-pointer hover:an:bg-[#256d29] an:transition-colors';
   saveBtn.innerHTML = `${ICONS.check} <span>Save</span>`;
   saveBtn.addEventListener('click', () => {
     const hex = normalizeHex(hexInput.value) ?? colorInput.value;
@@ -264,8 +262,8 @@ function openEditor(opts: EditorOpts): void {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
     deleteBtn.className =
-      'flex items-center justify-center w-8 h-8 rounded-md border-none ' +
-      'bg-transparent text-[var(--ap-icon-idle)] cursor-pointer transition-colors shrink-0';
+      'an:flex an:items-center an:justify-center an:w-8 an:h-8 an:rounded-md an:border-none ' +
+      'an:bg-transparent an:text-[var(--ap-icon-idle)] an:cursor-pointer an:transition-colors an:shrink-0';
     deleteBtn.title = 'Remove color';
     deleteBtn.innerHTML = ICONS.trash;
     deleteBtn.style.color = 'var(--ap-danger)';
@@ -295,8 +293,8 @@ function buildSwatch(
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className =
-    'w-7 h-7 rounded-full border-none cursor-pointer shrink-0 ' +
-    'transition-all duration-150 hover:scale-110';
+    'an:w-7 an:h-7 an:rounded-full an:border-none an:cursor-pointer an:shrink-0 ' +
+    'an:transition-all an:duration-150 hover:an:scale-110';
   btn.style.backgroundColor = color;
   btn.style.boxShadow = SWATCH_INSET;
 
@@ -315,8 +313,8 @@ function buildAddButton(onClick: () => void): HTMLButtonElement {
   const btn = document.createElement('button');
   btn.type = 'button';
   btn.className =
-    'w-7 h-7 rounded-full border border-dashed cursor-pointer shrink-0 ' +
-    'transition-all duration-150 hover:scale-110 inline-flex items-center justify-center';
+    'an:w-7 an:h-7 an:rounded-full an:border an:border-dashed an:cursor-pointer an:shrink-0 ' +
+    'an:transition-all an:duration-150 hover:an:scale-110 an:inline-flex an:items-center an:justify-center';
   btn.style.borderColor = 'var(--ap-border-md)';
   btn.style.color = 'var(--ap-muted)';
   btn.innerHTML =
@@ -342,7 +340,7 @@ function renderPaletteContent(body: HTMLElement): void {
 
   // ── System Colors ─────────────────────────────────────────────────────────
   const sysSection = document.createElement('div');
-  sysSection.className = 'mb-4';
+  sysSection.className = 'an:mb-4';
 
   const sysTitle = document.createElement('div');
   sysTitle.className = SECTION_TITLE;
@@ -350,7 +348,7 @@ function renderPaletteContent(body: HTMLElement): void {
   sysSection.appendChild(sysTitle);
 
   const sysGrid = document.createElement('div');
-  sysGrid.className = 'flex flex-wrap gap-2 items-center';
+  sysGrid.className = 'an:flex an:flex-wrap an:gap-2 an:items-center';
 
   const sysColors: { key: 'iconColor' | 'backgroundColor'; label: string }[] = [
     { key: 'iconColor', label: 'Icon color' },
@@ -381,13 +379,13 @@ function renderPaletteContent(body: HTMLElement): void {
 
   // ── Divider ───────────────────────────────────────────────────────────────
   const divider = document.createElement('div');
-  divider.className = 'border-t my-1';
+  divider.className = 'an:border-t an:my-1';
   divider.style.borderColor = 'var(--ap-border)';
   body.appendChild(divider);
 
   // ── Highlight Colors ──────────────────────────────────────────────────────
   const hlSection = document.createElement('div');
-  hlSection.className = 'mt-3';
+  hlSection.className = 'an:mt-3';
 
   const hlTitle = document.createElement('div');
   hlTitle.className = SECTION_TITLE;
@@ -395,7 +393,7 @@ function renderPaletteContent(body: HTMLElement): void {
   hlSection.appendChild(hlTitle);
 
   const hlGrid = document.createElement('div');
-  hlGrid.className = 'flex flex-wrap gap-2 items-center';
+  hlGrid.className = 'an:flex an:flex-wrap an:gap-2 an:items-center';
 
   function rebuildHighlights(): void {
     hlGrid.innerHTML = '';
@@ -445,10 +443,8 @@ function renderPaletteContent(body: HTMLElement): void {
 
   // ── Footer ────────────────────────────────────────────────────────────────
   const footer = document.createElement('div');
-  footer.className = 'mt-4 pt-3 border-t';
+  footer.className = 'an:mt-4 an:pt-3 an:border-t';
   footer.style.borderColor = 'var(--ap-border)';
-
-
 
   body.appendChild(footer);
 }
@@ -491,7 +487,7 @@ function deriveTextColor(bgHex: string): string {
 // ─── Apply system colors to the toolbar ──────────────────────────────────────
 
 function applySystemColors(config: PaletteConfig): void {
-  const toolbar = document.getElementById('annotator-extension-toolbar');
+  const toolbar = $id('annotator-extension-toolbar');
   if (!toolbar) return;
 
   const bgHex = colorToHex(config.system.backgroundColor);
@@ -525,7 +521,7 @@ function applySystemColors(config: PaletteConfig): void {
   }
 
   toolbar.querySelectorAll<HTMLElement>('button[data-mode]').forEach((btn) => {
-    const isActive = btn.classList.contains('bg-[#2e7d32]');
+    const isActive = btn.classList.contains('an:bg-[#2e7d32]');
     if (isActive) {
       btn.style.backgroundColor = activeBg;
       btn.style.color = activeFg;

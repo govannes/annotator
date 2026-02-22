@@ -1,13 +1,14 @@
 import { DEFAULT_PALETTE, PALETTE_STORAGE_KEY, POPUP_PANEL_ID, TOOLBAR_ID, type PaletteConfig } from './constants';
+import { $id, getShadowRoot } from './shadow-host';
 
 let currentPanelId: string | null = null;
 let outsideClickHandler: ((e: MouseEvent) => void) | null = null;
 
 /** Sync the popup panel's horizontal position with the toolbar offset. */
 export function syncPanelOffset(): void {
-  const panel = document.getElementById(POPUP_PANEL_ID);
+  const panel = $id(POPUP_PANEL_ID);
   if (!panel) return;
-  const toolbar = document.getElementById(TOOLBAR_ID);
+  const toolbar = $id(TOOLBAR_ID);
   const offset = toolbar
     ? getComputedStyle(toolbar).getPropertyValue('--annotator-toolbar-offset-x') || '0px'
     : '0px';
@@ -158,11 +159,11 @@ function applyPanelTheme(panel: HTMLElement, header: HTMLElement): void {
  * Accepts a raw background color string.
  */
 export function refreshPanelTheme(bgColor: string): void {
-  const panel = document.getElementById(POPUP_PANEL_ID);
+  const panel = $id(POPUP_PANEL_ID);
   if (!panel) return;
   const bgHex = colorToHexSimple(bgColor);
   setPanelCSSVars(panel, bgHex);
-  const header = panel.querySelector<HTMLElement>('.border-b');
+  const header = panel.querySelector<HTMLElement>('.an\\:border-b');
   if (header) header.style.borderColor = 'var(--ap-border)';
 }
 
@@ -170,12 +171,12 @@ function buildPanelContainer(title: string): HTMLDivElement {
   const panel = document.createElement('div');
   panel.id = POPUP_PANEL_ID;
   panel.className =
-    'fixed left-1/2 bottom-[70px] z-[2147483647] border ' +
-    'rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)] font-sans text-[13px] ' +
-    'max-w-[400px] w-[90vw] max-h-[50vh] flex flex-col';
+    'an:fixed an:left-1/2 an:bottom-[70px] an:z-[2147483647] an:border ' +
+    'an:rounded-xl an:shadow-[0_8px_32px_rgba(0,0,0,0.12)] an:font-sans an:text-[13px] ' +
+    'an:max-w-[400px] an:w-[90vw] an:max-h-[50vh] an:flex an:flex-col';
 
   syncPanelOffset.call(null);
-  const toolbar = document.getElementById(TOOLBAR_ID);
+  const toolbar = $id(TOOLBAR_ID);
   const offset = toolbar
     ? getComputedStyle(toolbar).getPropertyValue('--annotator-toolbar-offset-x') || '0px'
     : '0px';
@@ -183,17 +184,17 @@ function buildPanelContainer(title: string): HTMLDivElement {
 
   const header = document.createElement('div');
   header.className =
-    'flex justify-between items-center px-4 py-3 border-b shrink-0';
+    'an:flex an:justify-between an:items-center an:px-4 an:py-3 an:border-b an:shrink-0';
   header.innerHTML = `
-    <span class="font-semibold text-sm" data-popup-title>${title}</span>
+    <span class="an:font-semibold an:text-sm" data-popup-title>${title}</span>
     <button id="annotator-popup-close"
-      class="bg-transparent border-none cursor-pointer text-lg leading-none p-1 rounded opacity-60 hover:opacity-100">&times;</button>
+      class="an:bg-transparent an:border-none an:cursor-pointer an:text-lg an:leading-none an:p-1 an:rounded an:opacity-60 hover:an:opacity-100">&times;</button>
   `;
   panel.appendChild(header);
 
   const body = document.createElement('div');
   body.id = 'annotator-popup-body';
-  body.className = 'overflow-y-auto p-4 flex-1';
+  body.className = 'an:overflow-y-auto an:p-4 an:flex-1';
   panel.appendChild(body);
 
   applyPanelTheme(panel, header);
@@ -203,11 +204,11 @@ function buildPanelContainer(title: string): HTMLDivElement {
 
 function addClickOutsideDismiss(panel: HTMLElement): void {
   function handler(e: MouseEvent) {
-    const target = e.target as Node;
-    const toolbar = document.getElementById(TOOLBAR_ID);
+    const path = e.composedPath();
+    const toolbar = $id(TOOLBAR_ID);
     if (
-      !panel.contains(target) &&
-      (!toolbar || !toolbar.contains(target))
+      !path.includes(panel) &&
+      (!toolbar || !path.includes(toolbar))
     ) {
       closePanel();
     }
@@ -224,7 +225,7 @@ function removeClickOutsideDismiss(): void {
 }
 
 export function closePanel(): void {
-  const existing = document.getElementById(POPUP_PANEL_ID);
+  const existing = $id(POPUP_PANEL_ID);
   if (existing) existing.remove();
   removeClickOutsideDismiss();
   currentPanelId = null;
@@ -243,14 +244,13 @@ export function openPanel(
   closePanel();
 
   const container = buildPanelContainer(title);
-  document.body.appendChild(container);
+  getShadowRoot().appendChild(container);
   currentPanelId = panelId;
 
-  const body = document.getElementById('annotator-popup-body');
+  const body = $id('annotator-popup-body');
   if (body) renderContent(body);
 
-  document
-    .getElementById('annotator-popup-close')
+  $id('annotator-popup-close')
     ?.addEventListener('click', () => closePanel());
 
   addClickOutsideDismiss(container);
