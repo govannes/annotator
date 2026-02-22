@@ -1,44 +1,47 @@
 @import "tailwindcss" prefix(an);
 
 /*
- * Shadow-scoped reset — applies to all elements inside our shadow root.
- * Since we now live in a Shadow DOM, no ID-based scoping is needed.
+ * Shadow-scoped reset — in @layer base so Tailwind utilities (e.g. an:p-2)
+ * can override it. Unlayered styles override layered ones, so without this
+ * the reset would win over utility classes.
  */
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-  border-width: 0;
-  border-style: solid;
-  border-color: currentColor;
-  margin: 0;
-  padding: 0;
-}
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+    border-width: 0;
+    border-style: solid;
+    border-color: currentColor;
+    margin: 0;
+    padding: 0;
+  }
 
-svg {
-  display: block;
-}
+  svg {
+    display: block;
+  }
 
-button {
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  color: inherit;
-  background: transparent;
-  cursor: pointer;
-}
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    color: inherit;
+    background: transparent;
+    cursor: pointer;
+  }
 
-input[type="color"] {
-  appearance: none;
-  -webkit-appearance: none;
-  border: none;
-  padding: 0;
-}
+  input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    padding: 0;
+  }
 
-input[type="color"]::-webkit-color-swatch-wrapper {
-  padding: 0;
-}
+  input[type="color"]::-webkit-color-swatch-wrapper {
+    padding: 0;
+  }
 
-input[type="color"]::-webkit-color-swatch {
-  border: none;
+  input[type="color"]::-webkit-color-swatch {
+    border: none;
+  }
 }

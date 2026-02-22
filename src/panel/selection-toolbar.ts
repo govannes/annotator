@@ -105,7 +105,7 @@ function buildToolbar(): HTMLElement {
   const container = document.createElement('div');
   container.id = SELECTION_TOOLBAR_ID;
   container.className =
-    'an:fixed an:z-[2147483647] an:flex an:items-center an:gap-1.5 an:py-1.5 an:px-2.5 ' +
+    'an:fixed an:z-[2147483647] an:flex an:items-center an:gap-2 an:py-2 an:px-3 ' +
     'an:rounded-lg an:shadow-[0_4px_16px_rgba(0,0,0,0.24)] an:font-sans an:text-[13px] an:select-none';
   container.style.backgroundColor = '#333';
   container.style.color = '#fff';
@@ -143,7 +143,7 @@ function buildToolbar(): HTMLElement {
   }
 
   const sep = document.createElement('div');
-  sep.className = 'an:w-px an:h-4 an:mx-0.5 an:shrink-0';
+  sep.className = 'an:w-px an:h-4 an:mx-1 an:shrink-0';
   sep.style.backgroundColor = 'rgba(255,255,255,0.25)';
   container.appendChild(sep);
 
@@ -151,7 +151,7 @@ function buildToolbar(): HTMLElement {
   highlightBtn.type = 'button';
   highlightBtn.className =
     'an:border-none an:cursor-pointer an:text-white an:text-[13px] an:font-medium ' +
-    'an:bg-transparent an:px-1.5 an:py-0.5 an:rounded hover:an:bg-white/15 an:transition-colors an:whitespace-nowrap';
+    'an:bg-transparent an:px-2 an:py-1 an:rounded hover:an:bg-white/15 an:transition-colors an:whitespace-nowrap';
   highlightBtn.textContent = 'Highlight';
   highlightBtn.addEventListener('mousedown', (e) => {
     e.preventDefault();

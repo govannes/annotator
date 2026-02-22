@@ -147,33 +147,52 @@ function setPanelCSSVars(panel: HTMLElement, bgHex: string): void {
   panel.style.borderColor = vars['--ap-border']!;
 }
 
-function applyPanelTheme(panel: HTMLElement, header: HTMLElement): void {
+function applyPanelTheme(panel: HTMLElement): void {
   const config = loadPanelPalette();
   const bgHex = colorToHexSimple(config.system.backgroundColor);
   setPanelCSSVars(panel, bgHex);
-  header.style.borderColor = 'var(--ap-border)';
+  const iconHex = colorToHexSimple(config.system.iconColor);
+  (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
+  (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
 }
 
 /**
  * Re-apply panel theme vars from outside (e.g. after palette save).
  * Accepts a raw background color string.
  */
-export function refreshPanelTheme(bgColor: string): void {
+export function refreshPanelTheme(bgColor: string, iconColor?: string): void {
   const panel = $id(POPUP_PANEL_ID);
   if (!panel) return;
   const bgHex = colorToHexSimple(bgColor);
   setPanelCSSVars(panel, bgHex);
-  const header = panel.querySelector<HTMLElement>('.an\\:border-b');
-  if (header) header.style.borderColor = 'var(--ap-border)';
+  if (iconColor !== undefined) {
+    const iconHex = colorToHexSimple(iconColor);
+    (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
+    (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
+  }
 }
 
-function buildPanelContainer(title: string): HTMLDivElement {
+let activePanelButtonSetter: ((panelId: string | null) => void) | null = null;
+
+/** Called by toolbar to sync which panel button is active when a panel opens/closes. */
+export function registerActivePanelButtonSetter(cb: (panelId: string | null) => void): void {
+  activePanelButtonSetter = cb;
+}
+
+/** Return the toolbar width in pixels, or a fallback if toolbar is missing. */
+function getToolbarWidthPx(): number {
+  const toolbar = $id(TOOLBAR_ID);
+  if (!toolbar) return 400;
+  return toolbar.getBoundingClientRect().width;
+}
+
+function buildPanelContainer(): HTMLDivElement {
   const panel = document.createElement('div');
   panel.id = POPUP_PANEL_ID;
   panel.className =
-    'an:fixed an:left-1/2 an:bottom-[70px] an:z-[2147483647] an:border ' +
+    'an:fixed an:left-1/2 an:bottom-[84px] an:z-[2147483647] an:border ' +
     'an:rounded-xl an:shadow-[0_8px_32px_rgba(0,0,0,0.12)] an:font-sans an:text-[13px] ' +
-    'an:max-w-[400px] an:w-[90vw] an:max-h-[50vh] an:flex an:flex-col';
+    'an:max-h-[50vh] an:flex an:flex-col';
 
   syncPanelOffset.call(null);
   const toolbar = $id(TOOLBAR_ID);
@@ -181,23 +200,14 @@ function buildPanelContainer(title: string): HTMLDivElement {
     ? getComputedStyle(toolbar).getPropertyValue('--annotator-toolbar-offset-x') || '0px'
     : '0px';
   panel.style.transform = `translateX(calc(-50% + ${offset}))`;
-
-  const header = document.createElement('div');
-  header.className =
-    'an:flex an:justify-between an:items-center an:px-4 an:py-3 an:border-b an:shrink-0';
-  header.innerHTML = `
-    <span class="an:font-semibold an:text-sm" data-popup-title>${title}</span>
-    <button id="annotator-popup-close"
-      class="an:bg-transparent an:border-none an:cursor-pointer an:text-lg an:leading-none an:p-1 an:rounded an:opacity-60 hover:an:opacity-100">&times;</button>
-  `;
-  panel.appendChild(header);
+  panel.style.width = `${getToolbarWidthPx()}px`;
 
   const body = document.createElement('div');
   body.id = 'annotator-popup-body';
-  body.className = 'an:overflow-y-auto an:p-4 an:flex-1';
+  body.className = 'an:overflow-y-auto an:px-5 an:py-4 an:flex-1';
   panel.appendChild(body);
 
-  applyPanelTheme(panel, header);
+  applyPanelTheme(panel);
 
   return panel;
 }
@@ -225,15 +235,17 @@ function removeClickOutsideDismiss(): void {
 }
 
 export function closePanel(): void {
+  const previousPanelId = currentPanelId;
   const existing = $id(POPUP_PANEL_ID);
   if (existing) existing.remove();
   removeClickOutsideDismiss();
   currentPanelId = null;
+  if (previousPanelId && activePanelButtonSetter) activePanelButtonSetter(null);
 }
 
 export function openPanel(
   panelId: string,
-  title: string,
+  _title: string,
   renderContent: (body: HTMLElement) => void,
 ): void {
   if (currentPanelId === panelId) {
@@ -243,15 +255,14 @@ export function openPanel(
 
   closePanel();
 
-  const container = buildPanelContainer(title);
+  const container = buildPanelContainer();
   getShadowRoot().appendChild(container);
   currentPanelId = panelId;
 
   const body = $id('annotator-popup-body');
   if (body) renderContent(body);
 
-  $id('annotator-popup-close')
-    ?.addEventListener('click', () => closePanel());
+  if (activePanelButtonSetter) activePanelButtonSetter(panelId);
 
   addClickOutsideDismiss(container);
 }

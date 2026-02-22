@@ -49,7 +49,7 @@ function colorToHex(color: string): string {
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const SECTION_TITLE =
-  'an:text-[11px] an:font-semibold an:uppercase an:tracking-wider an:text-[var(--ap-muted)] an:mb-2';
+  'an:text-[11px] an:font-semibold an:uppercase an:tracking-wider an:text-[var(--ap-muted)] an:mb-3';
 
 const SWATCH_INSET = 'inset 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.12)';
 
@@ -118,7 +118,7 @@ function openEditor(opts: EditorOpts): void {
 
   const editor = document.createElement('div');
   editor.className =
-    'an:rounded-lg an:overflow-hidden an:mt-3 an:mb-1';
+    'an:rounded-lg an:overflow-hidden an:mt-4 an:mb-2';
   editor.style.backgroundColor = 'var(--ap-surface)';
   editor.style.border = '1px solid var(--ap-border)';
 
@@ -126,7 +126,7 @@ function openEditor(opts: EditorOpts): void {
   inner.className = 'an:p-3 an:flex an:flex-col an:gap-3';
 
   const colorRow = document.createElement('div');
-  colorRow.className = 'an:flex an:items-center an:gap-3';
+  colorRow.className = 'an:flex an:items-end an:gap-3';
 
   const swatchWrap = document.createElement('div');
   swatchWrap.className = 'an:relative an:w-9 an:h-9 an:rounded-lg an:overflow-hidden an:cursor-pointer an:shrink-0';
@@ -336,11 +336,11 @@ function buildAddButton(onClick: () => void): HTMLButtonElement {
 function renderPaletteContent(body: HTMLElement): void {
   const config = loadPalette();
   body.innerHTML = '';
-  body.style.padding = '12px 16px 16px';
+  body.style.padding = '14px 20px 20px';
 
   // ── System Colors ─────────────────────────────────────────────────────────
   const sysSection = document.createElement('div');
-  sysSection.className = 'an:mb-4';
+  sysSection.className = 'an:mb-5';
 
   const sysTitle = document.createElement('div');
   sysTitle.className = SECTION_TITLE;
@@ -348,7 +348,7 @@ function renderPaletteContent(body: HTMLElement): void {
   sysSection.appendChild(sysTitle);
 
   const sysGrid = document.createElement('div');
-  sysGrid.className = 'an:flex an:flex-wrap an:gap-2 an:items-center';
+  sysGrid.className = 'an:flex an:flex-wrap an:gap-3 an:items-center';
 
   const sysColors: { key: 'iconColor' | 'backgroundColor'; label: string }[] = [
     { key: 'iconColor', label: 'Icon color' },
@@ -379,13 +379,13 @@ function renderPaletteContent(body: HTMLElement): void {
 
   // ── Divider ───────────────────────────────────────────────────────────────
   const divider = document.createElement('div');
-  divider.className = 'an:border-t an:my-1';
+  divider.className = 'an:border-t an:my-2';
   divider.style.borderColor = 'var(--ap-border)';
   body.appendChild(divider);
 
   // ── Highlight Colors ──────────────────────────────────────────────────────
   const hlSection = document.createElement('div');
-  hlSection.className = 'an:mt-3';
+  hlSection.className = 'an:mt-4';
 
   const hlTitle = document.createElement('div');
   hlTitle.className = SECTION_TITLE;
@@ -393,7 +393,7 @@ function renderPaletteContent(body: HTMLElement): void {
   hlSection.appendChild(hlTitle);
 
   const hlGrid = document.createElement('div');
-  hlGrid.className = 'an:flex an:flex-wrap an:gap-2 an:items-center';
+  hlGrid.className = 'an:flex an:flex-wrap an:gap-3 an:items-center';
 
   function rebuildHighlights(): void {
     hlGrid.innerHTML = '';
@@ -443,7 +443,7 @@ function renderPaletteContent(body: HTMLElement): void {
 
   // ── Footer ────────────────────────────────────────────────────────────────
   const footer = document.createElement('div');
-  footer.className = 'an:mt-4 an:pt-3 an:border-t';
+  footer.className = 'an:mt-5 an:pt-4 an:border-t';
   footer.style.borderColor = 'var(--ap-border)';
 
   body.appendChild(footer);
@@ -509,9 +509,17 @@ function applySystemColors(config: PaletteConfig): void {
     el.style.color = config.system.iconColor;
   });
 
+  // Apply divider color to [data-divider] elements
   toolbar.querySelectorAll<HTMLElement>('[data-divider]').forEach((el) => {
     el.style.borderColor = dividerColor;
   });
+  // Also apply divider color to the border of the toggle group if applicable
+  toolbar.querySelectorAll<HTMLElement>('[data-toggle-group="annotation-mode"]').forEach((el) => {
+    el.style.borderColor = dividerColor;
+  });
+  
+  (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
+  (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
 
   const toggleGroup = toolbar.querySelector<HTMLElement>('[data-toggle-group]');
   if (toggleGroup) {
@@ -521,7 +529,18 @@ function applySystemColors(config: PaletteConfig): void {
   }
 
   toolbar.querySelectorAll<HTMLElement>('button[data-mode]').forEach((btn) => {
-    const isActive = btn.classList.contains('an:bg-[#2e7d32]');
+    const isActive = btn.getAttribute('data-active') === 'true';
+    if (isActive) {
+      btn.style.backgroundColor = activeBg;
+      btn.style.color = activeFg;
+    } else {
+      btn.style.backgroundColor = '';
+      btn.style.color = config.system.iconColor;
+    }
+  });
+
+  toolbar.querySelectorAll<HTMLElement>('button[data-panel]').forEach((btn) => {
+    const isActive = btn.getAttribute('data-active') === 'true';
     if (isActive) {
       btn.style.backgroundColor = activeBg;
       btn.style.color = activeFg;
@@ -535,7 +554,7 @@ function applySystemColors(config: PaletteConfig): void {
 }
 
 function applyPopupPanelColors(config: PaletteConfig): void {
-  refreshPanelTheme(config.system.backgroundColor);
+  refreshPanelTheme(config.system.backgroundColor, config.system.iconColor);
 }
 
 /** Apply saved palette on toolbar injection. */
