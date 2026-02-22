@@ -3,10 +3,11 @@ import {
   SELECTION_TOOLBAR_ID,
   type HighlightColorEntry,
 } from './constants';
+import { ICONS } from './icons';
 import { getHighlightColors } from './palette-panel';
 import { getShadowRoot } from './shadow-host';
 import { getActiveMode, isHighlightDisabled } from './toolbar';
-import { hideTooltip, showTooltip } from './ui-utils';
+import { DRAG_HANDLE_CLS, DRAG_HANDLE_BORDER, hideTooltip, showTooltip } from './ui-utils';
 
 export type OnHighlightCallback = (range: Range, color: string) => void;
 
@@ -61,6 +62,34 @@ function positionToolbar(el: HTMLElement, rect: DOMRect): void {
   el.style.top = `${top}px`;
 }
 
+function setupSelectionToolbarDrag(handle: HTMLElement, container: HTMLElement): void {
+  let startX = 0;
+  let startLeft = 0;
+
+  handle.addEventListener('mousedown', (e: MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    startX = e.clientX;
+    startLeft = parseFloat(container.style.left) || 0;
+    handle.style.cursor = 'grabbing';
+
+    const onMove = (e2: MouseEvent) => {
+      const dx = e2.clientX - startX;
+      let newLeft = startLeft + dx;
+      const maxLeft = window.innerWidth - container.offsetWidth - 4;
+      newLeft = Math.max(4, Math.min(newLeft, maxLeft));
+      container.style.left = `${newLeft}px`;
+    };
+    const onUp = () => {
+      handle.style.cursor = 'grab';
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+}
+
 function buildToolbar(): HTMLElement {
   const colors = getHighlightColors();
   const active = getActiveColor(colors);
@@ -68,11 +97,26 @@ function buildToolbar(): HTMLElement {
   const container = document.createElement('div');
   container.id = SELECTION_TOOLBAR_ID;
   container.className =
-    'an:fixed an:z-[2147483647] an:flex an:items-center an:gap-2 an:py-2 an:px-3 ' +
+    'an:fixed an:z-[2147483647] an:flex an:items-center an:gap-0 an:py-2 an:px-0 ' +
     'an:rounded-lg an:shadow-[0_4px_16px_rgba(0,0,0,0.24)] an:font-sans an:text-[13px] an:select-none';
   container.style.backgroundColor = '#333';
   container.style.color = '#fff';
   container.style.pointerEvents = 'auto';
+  container.style.setProperty('--an-toolbar-border', 'rgba(255,255,255,0.15)');
+  container.style.setProperty('--an-toolbar-handle-color', 'rgba(255,255,255,0.4)');
+
+  const dragHandle = document.createElement('div');
+  dragHandle.className = DRAG_HANDLE_CLS + ' an:py-1 an:px-1 [&>svg]:an:w-3.5 [&>svg]:an:h-3.5';
+  dragHandle.style.cssText = `${DRAG_HANDLE_BORDER}; color: var(--an-toolbar-handle-color)`;
+  dragHandle.innerHTML = ICONS.dragIndicator;
+  dragHandle.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  container.appendChild(dragHandle);
+
+  const content = document.createElement('div');
+  content.className = 'an:flex an:items-center an:gap-2 an:px-3';
 
   for (const entry of colors) {
     const swatch = document.createElement('button');
@@ -102,13 +146,13 @@ function buildToolbar(): HTMLElement {
       refreshSwatches(container);
     });
     swatch.setAttribute('data-color-id', entry.id);
-    container.appendChild(swatch);
+    content.appendChild(swatch);
   }
 
   const sep = document.createElement('div');
   sep.className = 'an:w-px an:h-4 an:mx-1 an:shrink-0';
   sep.style.backgroundColor = 'rgba(255,255,255,0.25)';
-  container.appendChild(sep);
+  content.appendChild(sep);
 
   const highlightBtn = document.createElement('button');
   highlightBtn.type = 'button';
@@ -125,7 +169,10 @@ function buildToolbar(): HTMLElement {
     e.stopPropagation();
     handleHighlightClick();
   });
-  container.appendChild(highlightBtn);
+  content.appendChild(highlightBtn);
+
+  container.appendChild(content);
+  setupSelectionToolbarDrag(dragHandle, container);
 
   return container;
 }

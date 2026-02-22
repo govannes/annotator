@@ -1,5 +1,14 @@
 import { getShadowRoot } from './shadow-host';
 
+// ─── Shared toolbar style tokens ─────────────────────────────────────────────
+
+export const DRAG_HANDLE_CLS =
+  'an:cursor-grab an:flex an:items-center an:justify-center an:select-none an:shrink-0 an:self-stretch';
+
+export const DRAG_HANDLE_BORDER = 'border-right: 1px solid var(--an-toolbar-border)';
+
+// ─── Tooltip ─────────────────────────────────────────────────────────────────
+
 let tooltipEl: HTMLElement | null = null;
 
 export function showTooltip(anchor: HTMLElement, text: string): void {

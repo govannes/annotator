@@ -10,6 +10,7 @@ import { applySavedPalette, openPalettePanel } from './palette-panel';
 import { openPanel, registerActivePanelButtonSetter, syncPanelOffset } from './popup-panel';
 import { hideSelectionToolbar } from './selection-toolbar';
 import { $id, $q, $qa, getShadowRoot } from './shadow-host';
+import { DRAG_HANDLE_CLS, DRAG_HANDLE_BORDER } from './ui-utils';
 
 let inkCallback: OnElementAnnotate | null = null;
 
@@ -90,10 +91,10 @@ function buildToolbarHTML(): string {
   return `
     <div id="${TOOLBAR_ID}"
       class="an:fixed an:left-1/2 an:bottom-4 an:z-[2147483647] an:font-sans an:text-[13px] an:flex an:items-center an:bg-[#f0f0f0] an:text-[#333] an:p-2 an:rounded-xl an:shadow-[0_4px_20px_rgba(0,0,0,0.12)]"
-      style="--an-toolbar-border: rgba(0,0,0,0.12); transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)))">
+      style="--an-toolbar-border: rgba(0,0,0,0.12); --an-toolbar-handle-color: #aaa; transform: translateX(calc(-50% + var(--annotator-toolbar-offset-x, 0px)))">
       <div id="${TOOLBAR_DRAG_HANDLE_ID}"
-        class="an:cursor-grab an:py-2 an:px-1.5 an:text-[#aaa] an:flex an:items-center an:justify-center an:select-none"
-        style="border-right: 1px solid var(--an-toolbar-border)"
+        class="${DRAG_HANDLE_CLS} an:py-2 an:px-1.5"
+        style="${DRAG_HANDLE_BORDER}; color: var(--an-toolbar-handle-color, #aaa)"
         title="Drag to move toolbar" data-divider>${ICONS.dragIndicator}</div>
       <div class="an:flex an:items-center an:gap-2 an:px-2.5">
         <div class="an:flex an:items-center an:bg-transparent an:rounded-lg an:p-1 an:gap-0.5" style="border: 1px solid var(--an-toolbar-border)" data-toggle-group="annotation-mode">

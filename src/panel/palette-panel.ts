@@ -267,6 +267,7 @@ function buildSwatch(
     'an:transition-all an:duration-150 hover:an:scale-110';
   btn.style.backgroundColor = color;
   btn.style.boxShadow = SWATCH_INSET;
+  btn.style.outline = '1.5px solid var(--ap-border)';
 
   btn.addEventListener('mouseenter', () => showTooltip(btn, label));
   btn.addEventListener('mouseleave', () => hideTooltip());
