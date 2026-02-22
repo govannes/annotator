@@ -4,23 +4,18 @@ import {
   type HighlightColorEntry,
   type PaletteConfig,
 } from './constants';
+import {
+  colorToHex,
+  contrastingForeground,
+  deriveTextColor,
+  hexToRgb,
+  loadPalette,
+  relativeLuminance,
+} from './color-utils';
 import { ICONS } from './icons';
 import { openPanel, refreshPanelTheme } from './popup-panel';
 import { $id, getShadowRoot } from './shadow-host';
-
-function loadPalette(): PaletteConfig {
-  try {
-    const raw = localStorage.getItem(PALETTE_STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_PALETTE);
-    const parsed = JSON.parse(raw) as PaletteConfig;
-    if (!parsed.system || !Array.isArray(parsed.highlights)) {
-      return structuredClone(DEFAULT_PALETTE);
-    }
-    return parsed;
-  } catch {
-    return structuredClone(DEFAULT_PALETTE);
-  }
-}
+import { hideTooltip, showTooltip } from './ui-utils';
 
 function savePalette(config: PaletteConfig): void {
   localStorage.setItem(PALETTE_STORAGE_KEY, JSON.stringify(config));
@@ -30,22 +25,6 @@ function uid(): string {
   return 'hl_' + Math.random().toString(36).slice(2, 9);
 }
 
-/** Convert any CSS color (including rgba) to a hex string for <input type="color">. */
-function colorToHex(color: string): string {
-  if (color.startsWith('#') && (color.length === 7 || color.length === 4)) return color;
-  const ctx = document.createElement('canvas').getContext('2d');
-  if (!ctx) return '#000000';
-  ctx.fillStyle = color;
-  const computed = ctx.fillStyle;
-  if (computed.startsWith('#')) return computed;
-  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!match) return '#000000';
-  const r = parseInt(match[1]!, 10);
-  const g = parseInt(match[2]!, 10);
-  const b = parseInt(match[3]!, 10);
-  return '#' + [r, g, b].map((c) => c.toString(16).padStart(2, '0')).join('');
-}
-
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const SECTION_TITLE =
@@ -53,43 +32,7 @@ const SECTION_TITLE =
 
 const SWATCH_INSET = 'inset 0 0 0 1px rgba(0,0,0,0.12), inset 0 0 0 1px rgba(255,255,255,0.12)';
 
-// ─── Tooltip ─────────────────────────────────────────────────────────────────
-
-let tooltipEl: HTMLElement | null = null;
-
-function showTooltipAt(anchor: HTMLElement, text: string): void {
-  hideTooltipEl();
-  const tip = document.createElement('div');
-  tip.className =
-    'an:fixed an:z-[2147483647] an:py-1 an:px-2.5 an:rounded an:text-[11px] an:font-sans ' +
-    'an:whitespace-nowrap an:pointer-events-none an:select-none';
-  tip.style.backgroundColor = '#1a1a1a';
-  tip.style.color = '#eee';
-  tip.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-  tip.textContent = text;
-  getShadowRoot().appendChild(tip);
-
-  const ar = anchor.getBoundingClientRect();
-  const tw = tip.offsetWidth;
-  const th = tip.offsetHeight;
-  const gap = 6;
-
-  let left = ar.left + ar.width / 2 - tw / 2;
-  left = Math.max(4, Math.min(left, window.innerWidth - tw - 4));
-  let top = ar.top - th - gap;
-  if (top < 4) top = ar.bottom + gap;
-
-  tip.style.left = `${left}px`;
-  tip.style.top = `${top}px`;
-  tooltipEl = tip;
-}
-
-function hideTooltipEl(): void {
-  if (tooltipEl) {
-    tooltipEl.remove();
-    tooltipEl = null;
-  }
-}
+// Tooltip: uses shared showTooltip / hideTooltip from ui-utils.ts
 
 // ─── Inline Editor Popover ───────────────────────────────────────────────────
 
@@ -298,11 +241,11 @@ function buildSwatch(
   btn.style.backgroundColor = color;
   btn.style.boxShadow = SWATCH_INSET;
 
-  btn.addEventListener('mouseenter', () => showTooltipAt(btn, label));
-  btn.addEventListener('mouseleave', () => hideTooltipEl());
+  btn.addEventListener('mouseenter', () => showTooltip(btn, label));
+  btn.addEventListener('mouseleave', () => hideTooltip());
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    hideTooltipEl();
+    hideTooltip();
     onClick();
   });
 
@@ -320,11 +263,11 @@ function buildAddButton(onClick: () => void): HTMLButtonElement {
   btn.innerHTML =
     '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M440-440H200v-80h240v-240h80v240h240v80H520v240h-80v-240Z"/></svg>';
 
-  btn.addEventListener('mouseenter', () => showTooltipAt(btn, 'Add color'));
-  btn.addEventListener('mouseleave', () => hideTooltipEl());
+  btn.addEventListener('mouseenter', () => showTooltip(btn, 'Add color'));
+  btn.addEventListener('mouseleave', () => hideTooltip());
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
-    hideTooltipEl();
+    hideTooltip();
     onClick();
   });
 
@@ -447,41 +390,6 @@ function renderPaletteContent(body: HTMLElement): void {
   footer.style.borderColor = 'var(--ap-border)';
 
   body.appendChild(footer);
-}
-
-// ─── Color math (WCAG relative luminance) ────────────────────────────────────
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function relativeLuminance([r, g, b]: [number, number, number]): number {
-  const [rs, gs, bs] = [r, g, b].map((c) => {
-    const s = c / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  }) as [number, number, number];
-  return 0.2126 * rs + 0.7152 * gs + 0.0722 * bs;
-}
-
-/** Returns white or dark text depending on which has better contrast against `bg`. */
-function contrastingForeground(bgHex: string): string {
-  const lum = relativeLuminance(hexToRgb(bgHex));
-  return lum > 0.4 ? '#1a1a1a' : '#ffffff';
-}
-
-/**
- * Derive a readable text color from the background.
- * Uses soft contrast (not pure black/white) to reduce eye strain and halation
- * — easier for people with astigmatism (~50% of population).
- */
-function deriveTextColor(bgHex: string): string {
-  const lum = relativeLuminance(hexToRgb(bgHex));
-  return lum > 0.4 ? '#1a1a1a' : '#e8e8e8';
 }
 
 // ─── Apply system colors to the toolbar ──────────────────────────────────────

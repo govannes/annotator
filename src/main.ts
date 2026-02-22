@@ -1,5 +1,4 @@
 import { annotate, load, retryFailed } from './annotation';
-import { deleteAnnotation } from './core';
 import { applyHighlightVisibility } from './panel';
 import type { Annotation } from './types';
 
@@ -8,7 +7,6 @@ export interface AnnotatorConfig {
   getPageUrl: () => string;
 }
 
-let selectedAnnotationId: string | null = null;
 let pendingAnnotations: Annotation[] = [];
 let currentConfig: AnnotatorConfig | null = null;
 
@@ -24,7 +22,6 @@ export async function init(config: AnnotatorConfig): Promise<void> {
   console.log(`[Highlighter][Annotator] Loaded: ${loadResult.annotations.length} annotations, highlights: ${anchored}/${total}, pending: ${failed.length}`);
 
   applyHighlightVisibility();
-  wireButtons(ROOT, config);
 }
 
 /**
@@ -34,51 +31,18 @@ export async function init(config: AnnotatorConfig): Promise<void> {
 export async function performAnnotation(range: Range, color: string): Promise<void> {
   if (!currentConfig) return;
   const { root: ROOT, getPageUrl } = currentConfig;
-  const addResult = document.getElementById('add-annotation-result');
 
   if (!ROOT.contains(range.commonAncestorContainer)) {
-    if (addResult) addResult.textContent = 'Selection outside annotatable area.';
+    console.warn('[Highlighter][Annotator] Selection outside annotatable area.');
     return;
   }
 
   try {
     const annotation = await annotate(range, ROOT, getPageUrl(), undefined, color);
-    if (addResult) addResult.textContent = `Saved (${annotation.id.slice(0, 8)}…).`;
     console.log('[Highlighter][Annotator] Annotation saved:', annotation);
   } catch (e) {
-    if (addResult) addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
     console.error('[Highlighter][Annotator] Save error:', e);
   }
-}
-
-function wireButtons(_root: Element, config: AnnotatorConfig): void {
-  const deleteBtn = document.getElementById('annotator-btn-delete');
-  const addResult = document.getElementById('add-annotation-result');
-
-  if (!deleteBtn || !addResult) {
-    console.warn('[Highlighter][Annotator] Missing button elements');
-    return;
-  }
-
-  if ((deleteBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired) return;
-  (deleteBtn as unknown as { __annotatorWired?: boolean }).__annotatorWired = true;
-
-  deleteBtn.addEventListener('click', async () => {
-    if (!selectedAnnotationId) {
-      addResult.textContent = 'Click a highlight first, then delete.';
-      return;
-    }
-    try {
-      await deleteAnnotation(selectedAnnotationId);
-      console.log('[Highlighter][Annotator] Deleted:', selectedAnnotationId.slice(0, 8));
-      selectedAnnotationId = null;
-      await reattachHighlights(config);
-      addResult.textContent = 'Deleted.';
-    } catch (e) {
-      addResult.textContent = `Error: ${e instanceof Error ? e.message : String(e)}`;
-      console.error('[Highlighter][Annotator] Delete error:', e);
-    }
-  });
 }
 
 export async function reattachHighlights(config: AnnotatorConfig): Promise<void> {

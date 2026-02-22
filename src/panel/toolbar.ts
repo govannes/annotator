@@ -93,7 +93,6 @@ function buildToolbarHTML(): string {
         <button type="button" id="annotator-btn-settings" class="${BTN_TOGGLE} ${BTN_TOGGLE_INACTIVE}" title="Settings" data-panel="settings">${ICONS.settings}</button>
       </div>
     </div>
-    <div id="add-annotation-result" class="an:fixed an:-left-[9999px] an:pointer-events-none" aria-hidden="true"></div>
   `;
 }
 

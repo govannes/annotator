@@ -1,4 +1,6 @@
-import { DEFAULT_PALETTE, PALETTE_STORAGE_KEY, POPUP_PANEL_ID, TOOLBAR_ID, type PaletteConfig } from './constants';
+import { POPUP_PANEL_ID, TOOLBAR_ID } from './constants';
+import { colorToHex, ensureContrast, luminance } from './color-utils';
+import { loadPalette } from './color-utils';
 import { $id, getShadowRoot } from './shadow-host';
 
 let currentPanelId: string | null = null;
@@ -15,83 +17,6 @@ export function syncPanelOffset(): void {
   panel.style.transform = `translateX(calc(-50% + ${offset}))`;
 }
 
-function loadPanelPalette(): PaletteConfig {
-  try {
-    const raw = localStorage.getItem(PALETTE_STORAGE_KEY);
-    if (!raw) return structuredClone(DEFAULT_PALETTE);
-    const parsed = JSON.parse(raw) as PaletteConfig;
-    if (!parsed.system || !Array.isArray(parsed.highlights)) {
-      return structuredClone(DEFAULT_PALETTE);
-    }
-    return parsed;
-  } catch {
-    return structuredClone(DEFAULT_PALETTE);
-  }
-}
-
-function colorToHexSimple(color: string): string {
-  if (color.startsWith('#') && (color.length === 7 || color.length === 4)) return color;
-  const ctx = document.createElement('canvas').getContext('2d');
-  if (!ctx) return '#000000';
-  ctx.fillStyle = color;
-  const computed = ctx.fillStyle;
-  if (computed.startsWith('#')) return computed;
-  const match = computed.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-  if (!match) return '#000000';
-  return '#' + [match[1], match[2], match[3]].map((c) => parseInt(c!, 10).toString(16).padStart(2, '0')).join('');
-}
-
-function relativeLum(hex: string): number {
-  const h = hex.replace('#', '');
-  const [r, g, b] = [0, 2, 4].map((i) => {
-    const s = parseInt(h.slice(i, i + 2), 16) / 255;
-    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
-  }) as [number, number, number];
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function hexToRgb(hex: string): [number, number, number] {
-  const h = hex.replace('#', '');
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-function rgbToHex(r: number, g: number, b: number): string {
-  return '#' + [r, g, b].map((c) => Math.round(c).toString(16).padStart(2, '0')).join('');
-}
-
-function contrastRatio(l1: number, l2: number): number {
-  const lighter = Math.max(l1, l2);
-  const darker = Math.min(l1, l2);
-  return (lighter + 0.05) / (darker + 0.05);
-}
-
-/**
- * Mix a foreground color toward white or black until it reaches `minRatio`
- * contrast against `bgLum`. Picks the direction (lighten or darken) that
- * requires less travel from the starting point.
- */
-function ensureContrast(fg: string, bgLum: number, minRatio: number): string {
-  const [r, g, b] = hexToRgb(fg);
-  const fgLum = relativeLum(fg);
-  if (contrastRatio(fgLum, bgLum) >= minRatio) return fg;
-
-  const goLight = bgLum <= 0.5;
-  const target = goLight ? [255, 255, 255] : [0, 0, 0];
-
-  for (let t = 0.05; t <= 1; t += 0.05) {
-    const mr = r + (target[0]! - r) * t;
-    const mg = g + (target[1]! - g) * t;
-    const mb = b + (target[2]! - b) * t;
-    const mixed = rgbToHex(mr, mg, mb);
-    if (contrastRatio(relativeLum(mixed), bgLum) >= minRatio) return mixed;
-  }
-  return goLight ? '#ffffff' : '#000000';
-}
-
 /**
  * Compute a full set of semantic color tokens from the panel background,
  * then set them as CSS custom properties on the panel root. Every token
@@ -99,7 +24,7 @@ function ensureContrast(fg: string, bgLum: number, minRatio: number): string {
  * dark/light switch that breaks on mid-tones.
  */
 function setPanelCSSVars(panel: HTMLElement, bgHex: string): void {
-  const bgLum = relativeLum(bgHex);
+  const bgLum = luminance(bgHex);
   const goLight = bgLum <= 0.5;
 
   const textBase   = goLight ? '#e8e8e8' : '#1a1a1a';
@@ -148,10 +73,10 @@ function setPanelCSSVars(panel: HTMLElement, bgHex: string): void {
 }
 
 function applyPanelTheme(panel: HTMLElement): void {
-  const config = loadPanelPalette();
-  const bgHex = colorToHexSimple(config.system.backgroundColor);
+  const config = loadPalette();
+  const bgHex = colorToHex(config.system.backgroundColor);
   setPanelCSSVars(panel, bgHex);
-  const iconHex = colorToHexSimple(config.system.iconColor);
+  const iconHex = colorToHex(config.system.iconColor);
   (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
   (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
 }
@@ -163,10 +88,10 @@ function applyPanelTheme(panel: HTMLElement): void {
 export function refreshPanelTheme(bgColor: string, iconColor?: string): void {
   const panel = $id(POPUP_PANEL_ID);
   if (!panel) return;
-  const bgHex = colorToHexSimple(bgColor);
+  const bgHex = colorToHex(bgColor);
   setPanelCSSVars(panel, bgHex);
   if (iconColor !== undefined) {
-    const iconHex = colorToHexSimple(iconColor);
+    const iconHex = colorToHex(iconColor);
     (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
     (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
   }
