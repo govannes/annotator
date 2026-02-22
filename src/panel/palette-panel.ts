@@ -458,25 +458,25 @@ function applySystemColors(config: PaletteConfig): void {
   const dividerColor = bgLum > 0.5
     ? 'rgba(0, 0, 0, 0.12)'
     : 'rgba(255, 255, 255, 0.15)';
+  const hoverBg = bgLum > 0.5
+    ? 'rgba(0, 0, 0, 0.06)'
+    : 'rgba(255, 255, 255, 0.1)';
 
-  const activeBg = iconHex;
-  const activeFg = contrastingForeground(iconHex);
-
-  toolbar.querySelectorAll<HTMLElement>('button, [id$="drag-handle"]').forEach((el) => {
-    el.style.color = config.system.iconColor;
-  });
-
-  // Apply divider color to [data-divider] elements
   toolbar.querySelectorAll<HTMLElement>('[data-divider]').forEach((el) => {
     el.style.borderColor = dividerColor;
   });
-  // Also apply divider color to the border of the toggle group if applicable
   toolbar.querySelectorAll<HTMLElement>('[data-toggle-group="annotation-mode"]').forEach((el) => {
     el.style.borderColor = dividerColor;
   });
-  
-  (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
-  (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
+
+  const host = getShadowRoot().host as HTMLElement;
+  host.style.setProperty('--an-toggle-active-bg', iconHex);
+  host.style.setProperty('--an-toggle-active-fg', contrastingForeground(iconHex));
+  host.style.setProperty('--an-icon-color', iconHex);
+  host.style.setProperty('--an-hover-bg', hoverBg);
+
+  toolbar.style.setProperty('--an-toolbar-handle-color', iconHex);
+  toolbar.style.setProperty('--an-toolbar-border', dividerColor);
 
   const toggleGroup = toolbar.querySelector<HTMLElement>('[data-toggle-group]');
   if (toggleGroup) {
@@ -484,28 +484,6 @@ function applySystemColors(config: PaletteConfig): void {
     toggleGroup.style.color = `rgba(${r}, ${g}, ${b}, 0.45)`;
     toggleGroup.style.backgroundColor = 'transparent';
   }
-
-  toolbar.querySelectorAll<HTMLElement>('button[data-mode]').forEach((btn) => {
-    const isActive = btn.getAttribute('data-active') === 'true';
-    if (isActive) {
-      btn.style.backgroundColor = activeBg;
-      btn.style.color = activeFg;
-    } else {
-      btn.style.backgroundColor = '';
-      btn.style.color = config.system.iconColor;
-    }
-  });
-
-  toolbar.querySelectorAll<HTMLElement>('button[data-panel]').forEach((btn) => {
-    const isActive = btn.getAttribute('data-active') === 'true';
-    if (isActive) {
-      btn.style.backgroundColor = activeBg;
-      btn.style.color = activeFg;
-    } else {
-      btn.style.backgroundColor = '';
-      btn.style.color = config.system.iconColor;
-    }
-  });
 
   applyPopupPanelColors(config);
 }

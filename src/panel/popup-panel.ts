@@ -1,6 +1,5 @@
 import { POPUP_PANEL_ID, TOOLBAR_ID } from './constants';
-import { colorToHex, ensureContrast, luminance } from './color-utils';
-import { loadPalette } from './color-utils';
+import { colorToHex, contrastingForeground, ensureContrast, luminance, loadPalette } from './color-utils';
 import { $id, getShadowRoot } from './shadow-host';
 
 let currentPanelId: string | null = null;
@@ -77,8 +76,10 @@ function applyPanelTheme(panel: HTMLElement): void {
   const bgHex = colorToHex(config.system.backgroundColor);
   setPanelCSSVars(panel, bgHex);
   const iconHex = colorToHex(config.system.iconColor);
-  (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
-  (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
+  const host = getShadowRoot().host as HTMLElement;
+  host.style.setProperty('--an-toggle-active-bg', iconHex);
+  host.style.setProperty('--an-toggle-active-fg', contrastingForeground(iconHex));
+  host.style.setProperty('--an-icon-color', iconHex);
 }
 
 /**
@@ -92,8 +93,10 @@ export function refreshPanelTheme(bgColor: string, iconColor?: string): void {
   setPanelCSSVars(panel, bgHex);
   if (iconColor !== undefined) {
     const iconHex = colorToHex(iconColor);
-    (getShadowRoot().host as HTMLElement).style.setProperty('--an-toggle-active-bg', iconHex);
-    (getShadowRoot().host as HTMLElement).style.setProperty('--an-icon-color', iconHex);
+    const host = getShadowRoot().host as HTMLElement;
+    host.style.setProperty('--an-toggle-active-bg', iconHex);
+    host.style.setProperty('--an-toggle-active-fg', contrastingForeground(iconHex));
+    host.style.setProperty('--an-icon-color', iconHex);
   }
 }
 

@@ -15,20 +15,20 @@ import { DRAG_HANDLE_CLS, DRAG_HANDLE_BORDER } from './ui-utils';
 let inkCallback: OnElementAnnotate | null = null;
 
 const BTN_TOGGLE = 'an:w-9 an:h-9 an:p-0 an:border-none an:rounded-lg an:cursor-pointer an:inline-flex an:items-center an:justify-center [&>svg]:an:w-5 [&>svg]:an:h-5';
-const BTN_TOGGLE_ACTIVE = 'an:bg-[var(--an-toggle-active-bg,#2e7d32)] an:text-white an:shadow-sm';
-const BTN_TOGGLE_INACTIVE = 'an:bg-transparent an:text-[#444] hover:an:bg-[#e0e0e0]';
+const BTN_TOGGLE_ACTIVE = 'an:bg-[var(--an-toggle-active-bg,#2e7d32)] an:text-[var(--an-toggle-active-fg,#fff)] an:shadow-sm';
+const BTN_TOGGLE_INACTIVE = 'an:bg-transparent an:text-[var(--an-icon-color,#444)] hover:an:bg-[var(--an-hover-bg,#e0e0e0)]';
 
 const TOGGLE_ACTIVE_CLS = BTN_TOGGLE_ACTIVE.split(' ');
 const TOGGLE_INACTIVE_CLS = BTN_TOGGLE_INACTIVE.split(' ');
 
-/** Apply active/inactive toggle style to any toolbar toggle button. Uses --an-icon-color for inactive so custom palette is respected. */
+/** Apply active/inactive toggle style to any toolbar toggle button. All colors resolve through CSS custom properties set once by applySystemColors. */
 function applyToggleStyle(btn: HTMLElement, isActive: boolean, title?: string): void {
   btn.classList.remove(...TOGGLE_ACTIVE_CLS, ...TOGGLE_INACTIVE_CLS);
   btn.classList.add(...(isActive ? TOGGLE_ACTIVE_CLS : TOGGLE_INACTIVE_CLS));
   if (isActive) btn.setAttribute('data-active', 'true');
   else btn.removeAttribute('data-active');
   btn.style.backgroundColor = '';
-  btn.style.color = isActive ? '' : 'var(--an-icon-color, #444)';
+  btn.style.color = '';
   if (title !== undefined) btn.title = title;
 }
 
@@ -193,8 +193,6 @@ function setupModeToggle(): void {
       } else {
         deactivateInkMode();
       }
-
-      applySavedPalette();
     });
   });
 }
@@ -248,7 +246,6 @@ function setupVisibilityToggle(): void {
   btn.addEventListener('click', () => {
     saveHighlightDisabled(!highlightDisabled);
     applyToggleStyle(btn, highlightDisabled, highlightDisabled ? 'Show highlights' : 'Hide highlights');
-    applySavedPalette();
   });
 }
 
