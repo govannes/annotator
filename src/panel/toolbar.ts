@@ -5,9 +5,13 @@ import {
   TOOLBAR_OFFSET_STORAGE_KEY,
 } from './constants';
 import { ICONS } from './icons';
+import { activateInkMode, deactivateInkMode, type OnElementAnnotate } from './ink-mode';
 import { applySavedPalette, openPalettePanel } from './palette-panel';
 import { openPanel, registerActivePanelButtonSetter, syncPanelOffset } from './popup-panel';
+import { hideSelectionToolbar } from './selection-toolbar';
 import { $id, $q, $qa, getShadowRoot } from './shadow-host';
+
+let inkCallback: OnElementAnnotate | null = null;
 
 const BTN_TOGGLE = 'an:w-9 an:h-9 an:p-0 an:border-none an:rounded-lg an:cursor-pointer an:inline-flex an:items-center an:justify-center [&>svg]:an:w-5 [&>svg]:an:h-5';
 const BTN_TOGGLE_ACTIVE = 'an:bg-[var(--an-toggle-active-bg,#2e7d32)] an:text-white an:shadow-sm';
@@ -49,14 +53,25 @@ function toggleHighlightSpans(hide: boolean): void {
   const spans = document.querySelectorAll<HTMLElement>('.annotator-highlight');
   console.log('[Annotator] toggleHighlightSpans — hide:', hide, 'spans:', spans.length);
   spans.forEach((span) => {
+    const isElement = span.getAttribute('data-highlight-type') === 'element';
     if (hide) {
-      const current = span.style.getPropertyValue('background-color');
-      if (current) span.setAttribute(SAVED_COLOR_ATTR, current);
-      span.style.setProperty('background-color', 'transparent', 'important');
+      if (isElement) {
+        const current = span.style.getPropertyValue('outline');
+        if (current) span.setAttribute(SAVED_COLOR_ATTR, current);
+        span.style.setProperty('outline', 'none', 'important');
+      } else {
+        const current = span.style.getPropertyValue('background-color');
+        if (current) span.setAttribute(SAVED_COLOR_ATTR, current);
+        span.style.setProperty('background-color', 'transparent', 'important');
+      }
     } else {
       const saved = span.getAttribute(SAVED_COLOR_ATTR);
       if (saved) {
-        span.style.setProperty('background-color', saved, 'important');
+        if (isElement) {
+          span.style.setProperty('outline', saved, 'important');
+        } else {
+          span.style.setProperty('background-color', saved, 'important');
+        }
         span.removeAttribute(SAVED_COLOR_ATTR);
       }
     }
@@ -150,6 +165,11 @@ export function getActiveMode(): 'highlight' | 'ink' {
   return activeMode;
 }
 
+/** Register callback for ink-mode element annotations. Call once after injectToolbar. */
+export function registerInkCallback(cb: OnElementAnnotate): void {
+  inkCallback = cb;
+}
+
 function setupModeToggle(): void {
   const group = $q('[data-toggle-group="annotation-mode"]');
   if (!group) return;
@@ -165,6 +185,13 @@ function setupModeToggle(): void {
       buttons.forEach((b) => {
         applyToggleStyle(b, b.dataset.mode === mode);
       });
+
+      if (mode === 'ink') {
+        hideSelectionToolbar();
+        if (inkCallback) activateInkMode(inkCallback);
+      } else {
+        deactivateInkMode();
+      }
 
       applySavedPalette();
     });

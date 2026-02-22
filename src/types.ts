@@ -14,9 +14,19 @@ export interface Selector {
   docEndOffset?: number;
 }
 
+export interface ElementSelector {
+  cssPath: string;
+  xpath: string;
+  tagName: string;
+  attributes?: Record<string, string>;
+  textSnippet?: string;
+}
+
 export interface Annotation {
   id: string;
+  type?: 'highlight' | 'element';
   selector: Selector;
+  elementSelector?: ElementSelector;
   pageUrl?: string;
   baseUrl?: string;
   body?: { type: string; value: string };

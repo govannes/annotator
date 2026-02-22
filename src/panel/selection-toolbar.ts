@@ -5,7 +5,7 @@ import {
 } from './constants';
 import { getHighlightColors } from './palette-panel';
 import { getShadowRoot } from './shadow-host';
-import { isHighlightDisabled } from './toolbar';
+import { getActiveMode, isHighlightDisabled } from './toolbar';
 import { hideTooltip, showTooltip } from './ui-utils';
 
 export type OnHighlightCallback = (range: Range, color: string) => void;
@@ -37,7 +37,8 @@ function saveActiveColorId(id: string): void {
 }
 
 function getActiveColor(colors: HighlightColorEntry[]): HighlightColorEntry {
-  const id = activeColorId ?? loadActiveColorId();
+  const id = loadActiveColorId();
+  activeColorId = id;
   return colors.find((c) => c.id === id) ?? colors[0]!;
 }
 
@@ -166,7 +167,7 @@ function isInsideExtension(node: Node): boolean {
 }
 
 function showSelectionToolbar(): void {
-  if (isHighlightDisabled()) return;
+  if (isHighlightDisabled() || getActiveMode() === 'ink') return;
   const sel = window.getSelection();
   if (!sel || sel.isCollapsed || sel.rangeCount === 0) return;
 

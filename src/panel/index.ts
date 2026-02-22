@@ -8,5 +8,5 @@ export { setupShowDbButton } from './db-overlay';
 export { getActiveHighlightColor, getHighlightColors } from './palette-panel';
 export { closePanel, getOpenPanelId, openPanel, syncPanelOffset } from './popup-panel';
 export { destroySelectionToolbar, hideSelectionToolbar, initSelectionToolbar } from './selection-toolbar';
-export { applyHighlightVisibility, injectToolbar, isHighlightDisabled } from './toolbar';
+export { applyHighlightVisibility, getActiveMode, injectToolbar, isHighlightDisabled, registerInkCallback } from './toolbar';
 

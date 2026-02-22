@@ -1,5 +1,6 @@
 const HIGHLIGHT_CLASS = 'annotator-highlight';
 const HIGHLIGHT_TYPE = 'highlight';
+const ELEMENT_TYPE = 'element';
 const HIGHLIGHT_COLOR = 'rgba(255, 220, 0, 0.35)';
 
 export function highlightRange(
@@ -24,10 +25,33 @@ export function highlightRange(
   return firstSpan !== undefined;
 }
 
+/** Apply a non-intrusive outline highlight directly on a DOM element (images, divs, etc.). */
+export function highlightElement(
+  el: Element,
+  annotationId: string,
+  color?: string,
+): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  const appliedColor = color ?? HIGHLIGHT_COLOR;
+  el.classList.add(HIGHLIGHT_CLASS);
+  el.setAttribute('data-annotation-id', annotationId);
+  el.setAttribute('data-highlight-type', ELEMENT_TYPE);
+  el.style.setProperty('outline', `3px solid ${appliedColor}`, 'important');
+  el.style.setProperty('outline-offset', '-2px', 'important');
+  return true;
+}
+
 export function clearHighlights(root: Element): void {
   const list = root.querySelectorAll(`.${HIGHLIGHT_CLASS}`);
   list.forEach((el) => {
-    if (el.tagName === 'SPAN') {
+    const type = el.getAttribute('data-highlight-type');
+    if (type === ELEMENT_TYPE) {
+      el.classList.remove(HIGHLIGHT_CLASS);
+      el.removeAttribute('data-annotation-id');
+      el.removeAttribute('data-highlight-type');
+      (el as HTMLElement).style.removeProperty('outline');
+      (el as HTMLElement).style.removeProperty('outline-offset');
+    } else if (el.tagName === 'SPAN') {
       const parent = el.parentNode;
       if (parent) {
         while (el.firstChild) parent.insertBefore(el.firstChild, el);

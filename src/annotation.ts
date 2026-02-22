@@ -3,11 +3,13 @@ import {
   build,
   clearHighlights,
   highlightRange,
+  highlightElement,
   loadAnnotations,
   saveAnnotation,
 } from './core';
 import { AnnotationHighlighter } from './core/annotation-highlighter';
-import type { Annotation } from './types';
+import { buildElementSelector, resolveElementSelector } from './core/selectors/element-selector-builder';
+import type { Annotation, Selector } from './types';
 
 export interface LoadResult {
   annotations: Annotation[];
@@ -40,6 +42,41 @@ export async function annotate(
   await saveAnnotation(annotation);
 
   highlightRange(range, annotation.id, color);
+
+  return annotation;
+}
+
+export async function annotateElement(
+  element: Element,
+  root: Element,
+  pageUrl: string,
+  color?: string,
+): Promise<Annotation> {
+  const elSelector = buildElementSelector(element, root);
+
+  const stubSelector: Selector = {
+    exact: elSelector.textSnippet ?? '',
+    prefix: '',
+    suffix: '',
+    start: elSelector.xpath,
+    end: elSelector.xpath,
+    startOffset: 0,
+    endOffset: 0,
+  };
+
+  const annotation: Annotation = {
+    id: crypto.randomUUID(),
+    type: 'element',
+    selector: stubSelector,
+    elementSelector: elSelector,
+    pageUrl,
+    created: new Date().toISOString(),
+    color,
+  };
+
+  await saveAnnotation(annotation);
+
+  highlightElement(element, annotation.id, color);
 
   return annotation;
 }
@@ -85,6 +122,20 @@ function anchorBatch(
   console.log(`${TAG} Doc text length: ${currentText.length}, segments: ${currentSegments.length}`);
 
   for (const ann of annotations) {
+    if (ann.type === 'element') {
+      if (!ann.elementSelector) { failed.push(ann); continue; }
+      const el = resolveElementSelector(ann.elementSelector, root);
+      if (el) {
+        highlightElement(el, ann.id, ann.color);
+        anchored++;
+        console.log(`${TAG} ✓ ${ann.id.slice(0, 8)} element anchored — <${ann.elementSelector.tagName.toLowerCase()}>`);
+      } else {
+        failed.push(ann);
+        console.warn(`${TAG} ✗ ${ann.id.slice(0, 8)} element failed — cssPath: "${ann.elementSelector.cssPath}"`);
+      }
+      continue;
+    }
+
     const highlighter = new AnnotationHighlighter(ann, root, currentText, currentSegments);
     const result = highlighter.resolveRange();
     if (result.ok) {

@@ -1,4 +1,4 @@
-import { annotate, load, retryFailed } from './annotation';
+import { annotate, annotateElement, load, retryFailed } from './annotation';
 import { applyHighlightVisibility } from './panel';
 import type { Annotation } from './types';
 
@@ -42,6 +42,24 @@ export async function performAnnotation(range: Range, color: string): Promise<vo
     console.log('[Highlighter][Annotator] Annotation saved:', annotation);
   } catch (e) {
     console.error('[Highlighter][Annotator] Save error:', e);
+  }
+}
+
+/** Called by ink mode when the user clicks a DOM element. */
+export async function performElementAnnotation(element: Element, color: string): Promise<void> {
+  if (!currentConfig) return;
+  const { root: ROOT, getPageUrl } = currentConfig;
+
+  if (!ROOT.contains(element)) {
+    console.warn('[Highlighter][Annotator] Element outside annotatable area.');
+    return;
+  }
+
+  try {
+    const annotation = await annotateElement(element, ROOT, getPageUrl(), color);
+    console.log('[Highlighter][Annotator] Element annotation saved:', annotation);
+  } catch (e) {
+    console.error('[Highlighter][Annotator] Element save error:', e);
   }
 }
 

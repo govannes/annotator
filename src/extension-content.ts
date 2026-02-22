@@ -1,6 +1,6 @@
 import { ContentEvent, ContentObserver } from './engine/content-observer';
-import { hasPending, init, performAnnotation, reattachHighlights, retryPending } from './main';
-import { initSelectionToolbar, injectToolbar, setupShowDbButton } from './panel';
+import { hasPending, init, performAnnotation, performElementAnnotation, reattachHighlights, retryPending } from './main';
+import { initSelectionToolbar, injectToolbar, registerInkCallback, setupShowDbButton } from './panel';
 import { initShadowHost } from './panel/shadow-host';
 
 const REINJECT_DEBOUNCE_MS = 500;
@@ -12,6 +12,7 @@ function injectPanel(): boolean {
   if (didInject) {
     setupShowDbButton();
     initSelectionToolbar((range, color) => performAnnotation(range, color));
+    registerInkCallback((element, color) => performElementAnnotation(element, color));
   }
   return didInject;
 }

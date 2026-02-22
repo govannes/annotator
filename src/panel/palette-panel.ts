@@ -1,10 +1,4 @@
 import {
-  DEFAULT_PALETTE,
-  PALETTE_STORAGE_KEY,
-  type HighlightColorEntry,
-  type PaletteConfig,
-} from './constants';
-import {
   colorToHex,
   contrastingForeground,
   deriveTextColor,
@@ -12,6 +6,13 @@ import {
   loadPalette,
   relativeLuminance,
 } from './color-utils';
+import {
+  ACTIVE_HIGHLIGHT_COLOR_KEY,
+  DEFAULT_PALETTE,
+  PALETTE_STORAGE_KEY,
+  type HighlightColorEntry,
+  type PaletteConfig,
+} from './constants';
 import { ICONS } from './icons';
 import { openPanel, refreshPanelTheme } from './popup-panel';
 import { $id, getShadowRoot } from './shadow-host';
@@ -51,6 +52,8 @@ interface EditorOpts {
   labelEditable: boolean;
   onSave: (hex: string, label: string) => void;
   onDelete: (() => void) | null;
+  onSetActive: (() => void) | null;
+  isActive: boolean;
   anchor: HTMLElement;
   container: HTMLElement;
   config: PaletteConfig;
@@ -201,6 +204,30 @@ function openEditor(opts: EditorOpts): void {
   });
   actions.appendChild(saveBtn);
 
+  if (opts.onSetActive) {
+    const activeBtn = document.createElement('button');
+    activeBtn.type = 'button';
+    activeBtn.className =
+      'an:flex-1 an:flex an:items-center an:justify-center an:gap-1.5 an:text-[12px] an:font-medium ' +
+      'an:border-none an:rounded-md an:py-1.5 an:cursor-pointer an:transition-colors';
+    if (opts.isActive) {
+      activeBtn.style.backgroundColor = 'var(--ap-hover)';
+      activeBtn.style.color = 'var(--ap-muted)';
+      activeBtn.style.cursor = 'default';
+      activeBtn.innerHTML = `${ICONS.check} <span>Active</span>`;
+      activeBtn.disabled = true;
+    } else {
+      activeBtn.style.backgroundColor = 'var(--ap-hover)';
+      activeBtn.style.color = 'var(--ap-text)';
+      activeBtn.innerHTML = `<span>Set Active</span>`;
+      activeBtn.addEventListener('click', () => {
+        opts.onSetActive!();
+        closeEditor();
+      });
+    }
+    actions.appendChild(activeBtn);
+  }
+
   if (opts.onDelete) {
     const deleteBtn = document.createElement('button');
     deleteBtn.type = 'button';
@@ -311,6 +338,8 @@ function renderPaletteContent(body: HTMLElement): void {
           swatch.style.backgroundColor = hex;
         },
         onDelete: null,
+        onSetActive: null,
+        isActive: false,
         config,
       });
     });
@@ -340,9 +369,11 @@ function renderPaletteContent(body: HTMLElement): void {
 
   function rebuildHighlights(): void {
     hlGrid.innerHTML = '';
+    const currentActiveId = loadActiveColorId();
     for (let i = 0; i < config.highlights.length; i++) {
       const entry = config.highlights[i]!;
       const isDefault = entry.id === 'default';
+      const isActive = entry.id === currentActiveId;
       const label = entry.tag || entry.id;
 
       const swatch = buildSwatch(entry.color, label, () => {
@@ -356,16 +387,33 @@ function renderPaletteContent(body: HTMLElement): void {
             entry.color = hex;
             entry.tag = tag;
             swatch.style.backgroundColor = hex;
+            savePalette(config);
+            rebuildHighlights();
           },
           config,
           onDelete: isDefault
             ? null
             : () => {
                 config.highlights.splice(i, 1);
+                savePalette(config);
+                if (isActive && config.highlights.length > 0) {
+                  saveActiveColorId(config.highlights[0]!.id);
+                }
                 rebuildHighlights();
               },
+          onSetActive: () => {
+            saveActiveColorId(entry.id);
+            rebuildHighlights();
+          },
+          isActive,
         });
       });
+
+      if (isActive) {
+        swatch.style.boxShadow = `0 0 0 2.5px var(--ap-surface), 0 0 0 4px ${entry.color}`;
+        swatch.style.transform = 'scale(1.1)';
+      }
+
       hlGrid.appendChild(swatch);
     }
 
@@ -476,10 +524,27 @@ export function getHighlightColors(): HighlightColorEntry[] {
   return loadPalette().highlights;
 }
 
+function loadActiveColorId(): string {
+  try {
+    const stored = localStorage.getItem(ACTIVE_HIGHLIGHT_COLOR_KEY);
+    if (stored) return stored;
+  } catch { /* ignore */ }
+  const palette = loadPalette();
+  return palette.highlights[0]?.id ?? 'default';
+}
+
+function saveActiveColorId(id: string): void {
+  try {
+    localStorage.setItem(ACTIVE_HIGHLIGHT_COLOR_KEY, id);
+  } catch { /* ignore */ }
+}
+
 /** Returns the active/default highlight color. */
 export function getActiveHighlightColor(): string {
   const palette = loadPalette();
-  return palette.highlights[0]?.color ?? DEFAULT_PALETTE.highlights[0]!.color;
+  const id = loadActiveColorId();
+  const found = palette.highlights.find((c) => c.id === id);
+  return found?.color ?? palette.highlights[0]?.color ?? DEFAULT_PALETTE.highlights[0]!.color;
 }
 
 export function openPalettePanel(): void {
