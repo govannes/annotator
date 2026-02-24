@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Glean — Toolbar</title>
+<link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;1,400&family=DM+Mono:wght@400;500&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --ink:#1c1917;--ink2:#292524;--ink3:#3c3734;
+  --border:#44403c;--border-soft:#2e2a27;
+  --muted:#78716c;--muted2:#57534e;
+  --text:#e7e5e4;--text-soft:#a8a29e;
+  --amber:#f59e0b;--amber-soft:#f59e0b18;--amber-mid:#f59e0b35;--amber-dim:#f59e0b08;
+  --coral:#fb923c;--coral-soft:#fb923c18;
+  --sage:#84cc16;--sage-soft:#84cc1618;
+  --rose:#fb7185;--rose-soft:#fb718518;
+  --sky:#38bdf8;--sky-soft:#38bdf818;
+  --violet:#a78bfa;--violet-soft:#a78bfa18;
+  --red:#f87171;--red-soft:#f8717118;
+  --paper:#faf8f5;--paper2:#f4f1ec;--paper3:#ede9e2;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Outfit',sans-serif;background:var(--paper);min-height:100vh;overflow:hidden;}
+
+/* ── FAKE ARTICLE PAGE ── */
+.page{position:fixed;inset:0;background:var(--paper);overflow:hidden;}
+.page-inner{max-width:680px;margin:0 auto;padding:52px 40px 140px;}
+.page-kicker{font-family:'DM Mono',monospace;font-size:11px;color:#a8a29e;letter-spacing:.1em;text-transform:uppercase;margin-bottom:18px;}
+.page-h1{font-family:'Lora',serif;font-size:30px;color:#1c1917;line-height:1.3;margin-bottom:22px;font-weight:500;}
+.page-p{font-size:15px;line-height:1.85;color:#44403c;margin-bottom:16px;}
+.hl{position:relative;cursor:pointer;border-radius:2px;transition:opacity .2s;}
+.hl-amber{background:#f59e0b22;border-bottom:2px solid #f59e0b;}
+.hl-coral{background:#fb923c22;border-bottom:2px solid #fb923c;}
+.hl-sage{background:#84cc1622;border-bottom:2px solid #84cc16;}
+.hl-rose{background:#fb718522;border-bottom:2px solid #fb7185;}
+.hl-tip{position:absolute;top:-22px;left:0;font-family:'DM Mono',monospace;font-size:9px;padding:2px 6px;border-radius:3px;white-space:nowrap;opacity:0;transition:opacity .15s;pointer-events:none;z-index:10;}
+.hl:hover .hl-tip{opacity:1;}
+.hl-amber .hl-tip{background:#f59e0b;color:#1c1917;}
+.hl-coral .hl-tip{background:#fb923c;color:#1c1917;}
+.hl-sage .hl-tip{background:#84cc16;color:#1c1917;}
+.hl-rose .hl-tip{background:#fb7185;color:white;}
+
+/* ── TOOLBAR SCENE ── */
+.tb-scene{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;align-items:center;}
+
+/* ── POPOVER ── */
+.popover{
+  background:var(--ink);
+  border:1px solid var(--border);
+  border-radius:16px;
+  width:500px;
+  overflow:hidden;
+  box-shadow:0 0 0 1px rgba(255,255,255,.04),0 16px 56px rgba(0,0,0,.55),0 4px 16px rgba(0,0,0,.3);
+  margin-bottom:10px;
+  display:none;
+  flex-direction:column;
+  max-height:400px;
+  animation:popUp .17s cubic-bezier(.34,1.4,.64,1);
+  transform-origin:bottom center;
+}
+.popover.open{display:flex;}
+@keyframes popUp{from{opacity:0;transform:translateY(8px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}
+
+/* ── TOOLBAR ── */
+.toolbar{
+  background:var(--ink);
+  border:1px solid var(--border);
+  border-radius:15px;
+  padding:5px 7px;
+  display:flex;
+  align-items:center;
+  gap:1px;
+  box-shadow:0 0 0 1px rgba(255,255,255,.04),0 8px 32px rgba(0,0,0,.5);
+}
+.tb-btn{width:40px;height:37px;border-radius:9px;border:none;background:transparent;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;position:relative;flex-shrink:0;}
+.tb-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+.tb-btn:hover{background:var(--ink2);color:var(--text-soft);}
+.tb-btn.on{background:var(--amber-soft);color:var(--amber);}
+.tb-sep{width:1px;height:21px;background:var(--border-soft);margin:0 3px;flex-shrink:0;}
+.drag-dots{display:grid;grid-template-columns:1fr 1fr;gap:3px;padding:2px;}
+.drag-dots span{width:3px;height:3px;border-radius:50%;background:currentColor;display:block;}
+.tip{position:absolute;bottom:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--ink2);border:1px solid var(--border);color:var(--text-soft);font-size:10.5px;padding:3px 8px;border-radius:6px;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .12s;font-family:'DM Mono',monospace;z-index:300;}
+.tb-btn:hover .tip{opacity:1;}
+
+/* ── SHARED POPOVER PARTS ── */
+.pop-header{display:flex;align-items:center;gap:8px;padding:11px 14px;border-bottom:1px solid var(--border-soft);flex-shrink:0;}
+.pop-title{font-size:11px;font-weight:600;color:var(--muted2);letter-spacing:.1em;text-transform:uppercase;font-family:'DM Mono',monospace;}
+.pop-body{flex:1;overflow-y:auto;}
+.pop-search{flex:1;background:var(--ink2);border:1px solid var(--border-soft);border-radius:8px;padding:6px 10px;font-size:13px;color:var(--text);font-family:'Outfit',sans-serif;outline:none;transition:border-color .15s;}
+.pop-search:focus{border-color:var(--amber-mid);}
+.pop-search::placeholder{color:var(--muted2);}
+.pop-back{width:24px;height:24px;border-radius:6px;background:var(--ink2);border:none;color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;transition:all .12s;flex-shrink:0;}
+.pop-back:hover{background:var(--ink3);color:var(--text);}
+.field-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);font-family:'DM Mono',monospace;margin-bottom:6px;}
+.toggle{width:32px;height:18px;background:var(--border);border-radius:9px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0;}
+.toggle.on{background:var(--amber);}
+.toggle::after{content:'';position:absolute;width:14px;height:14px;background:white;border-radius:50%;top:2px;left:2px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3);}
+.toggle.on::after{transform:translateX(14px);}
+::-webkit-scrollbar{width:3px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ══════════════════════════════
+   PANEL: CAPTURE MODE
+══════════════════════════════ */
+.capture-options{display:flex;gap:7px;padding:12px 14px;}
+.capture-opt{flex:1;padding:13px 10px;border-radius:11px;border:1px solid var(--border-soft);background:var(--ink2);color:var(--muted);cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;gap:8px;font-family:'Outfit',sans-serif;}
+.capture-opt:hover{border-color:var(--amber-mid);color:var(--text-soft);}
+.capture-opt.active{border-color:var(--amber);background:var(--amber-soft);color:var(--amber);}
+.capture-opt svg{width:20px;height:20px;}
+.capture-opt-label{font-size:13px;font-weight:500;}
+.capture-opt-desc{font-size:11px;text-align:center;line-height:1.4;color:var(--muted2);}
+.capture-opt.active .capture-opt-desc{color:var(--amber);opacity:.7;}
+.capture-opt-key{font-family:'DM Mono',monospace;font-size:10px;background:var(--ink3);padding:2px 7px;border-radius:4px;color:var(--muted);}
+.capture-footer{padding:0 14px 12px;display:flex;flex-direction:column;gap:6px;}
+.capture-row{display:flex;align-items:center;gap:10px;padding:9px 11px;background:var(--ink2);border-radius:9px;}
+.capture-row-label{font-size:13px;color:var(--text-soft);flex:1;}
+.capture-row-sub{font-size:11px;color:var(--muted2);margin-top:1px;}
+.kb-row{display:flex;gap:5px;align-items:center;padding:7px 11px;background:var(--ink2);border-radius:9px;}
+.kb{font-family:'DM Mono',monospace;font-size:11px;padding:2px 7px;background:var(--ink3);border:1px solid var(--border);border-radius:4px;color:var(--text-soft);}
+.kb-desc{font-size:11px;color:var(--muted);margin-left:2px;}
+
+/* ══════════════════════════════
+   PANEL: SCREENSHOT
+══════════════════════════════ */
+.ss-preview{margin:12px 14px;border:1px solid var(--border-soft);border-radius:10px;overflow:hidden;cursor:pointer;position:relative;}
+.ss-mockscreen{width:100%;height:110px;background:linear-gradient(135deg,#faf9f7,#f0ede8);padding:10px 14px;display:flex;flex-direction:column;gap:5px;position:relative;}
+.ss-bar{height:5px;border-radius:3px;background:#d6d0c8;}
+.ss-hl{height:5px;border-radius:3px;background:#f59e0b44;border-bottom:1px solid #f59e0b;}
+.ss-hover{position:absolute;inset:0;border:2px dashed var(--amber);border-radius:10px;background:var(--amber-soft);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .18s;}
+.ss-preview:hover .ss-hover{opacity:1;}
+.ss-hover-label{font-size:12px;color:var(--amber);font-family:'DM Mono',monospace;}
+.ss-region-row{display:flex;gap:6px;padding:0 14px 10px;}
+.ss-region-btn{flex:1;padding:9px 8px;border-radius:9px;border:1px solid var(--border-soft);background:var(--ink2);color:var(--muted);font-size:12px;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .12s;display:flex;flex-direction:column;align-items:center;gap:5px;}
+.ss-region-btn:hover{border-color:var(--amber-mid);color:var(--text-soft);}
+.ss-region-btn.active{border-color:var(--amber);background:var(--amber-soft);color:var(--amber);}
+.ss-region-btn svg{width:15px;height:15px;}
+.ss-footer{padding:0 14px 14px;display:flex;gap:8px;align-items:center;}
+.ss-col-label{font-size:12px;color:var(--muted);flex-shrink:0;}
+.ss-col-select{flex:1;background:var(--ink2);border:1px solid var(--border-soft);border-radius:7px;padding:6px 10px;font-size:12px;color:var(--text-soft);font-family:'Outfit',sans-serif;outline:none;cursor:pointer;}
+.ss-capture-btn{background:var(--amber);border:none;border-radius:8px;padding:7px 14px;color:#1c1917;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;transition:opacity .12s;white-space:nowrap;display:flex;align-items:center;gap:5px;}
+.ss-capture-btn svg{width:13px;height:13px;}
+.ss-capture-btn:hover{opacity:.88;}
+
+/* ══════════════════════════════
+   PANEL: QUICK NOTE
+══════════════════════════════ */
+.qn-body{padding:12px 14px;display:flex;flex-direction:column;gap:9px;}
+.qn-textarea{width:100%;background:var(--ink2);border:1px solid var(--border-soft);border-radius:10px;padding:11px 12px;font-size:14px;color:var(--text);font-family:'Lora',serif;font-style:italic;resize:none;outline:none;line-height:1.65;height:100px;transition:border-color .15s;}
+.qn-textarea:focus{border-color:var(--amber-mid);}
+.qn-textarea::placeholder{color:var(--muted2);font-style:italic;}
+.qn-char{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;text-align:right;margin-top:-5px;}
+.qn-col-row{display:flex;gap:5px;flex-wrap:wrap;}
+.qn-col-chip{font-size:11px;padding:3px 10px;border-radius:10px;border:1px solid var(--border-soft);background:transparent;color:var(--muted);cursor:pointer;font-family:'DM Mono',monospace;transition:all .12s;}
+.qn-col-chip:hover{border-color:var(--amber-mid);color:var(--amber);}
+.qn-col-chip.active{background:var(--amber-soft);border-color:var(--amber-mid);color:var(--amber);}
+.qn-footer{display:flex;align-items:center;gap:8px;}
+.qn-url{flex:1;background:var(--ink2);border:1px solid var(--border-soft);border-radius:7px;padding:6px 10px;font-size:10.5px;color:var(--muted);font-family:'DM Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.qn-save-btn{background:var(--amber);border:none;border-radius:8px;padding:6px 14px;color:#1c1917;font-size:12.5px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;white-space:nowrap;}
+.qn-save-btn:hover{opacity:.88;}
+.qn-saved{display:none;flex-direction:column;align-items:center;justify-content:center;padding:30px 14px;gap:8px;}
+.qn-saved.show{display:flex;animation:popUp .2s cubic-bezier(.34,1.4,.64,1);}
+.qn-saved-icon{font-size:26px;}
+.qn-saved-text{font-size:13px;color:var(--text-soft);}
+.qn-saved-sub{font-size:11px;color:var(--muted2);font-family:'DM Mono',monospace;}
+
+/* ══════════════════════════════
+   PANEL: SWIPE FILE
+══════════════════════════════ */
+.sf-seg{display:flex;background:var(--ink2);border-radius:8px;padding:3px;gap:2px;flex:1;}
+.sf-seg-btn{padding:4px 10px;border-radius:5px;border:none;background:transparent;color:var(--muted);font-size:12px;font-family:'Outfit',sans-serif;font-weight:500;cursor:pointer;transition:all .12s;white-space:nowrap;}
+.sf-seg-btn.active{background:var(--ink3);color:var(--text);}
+.sf-row{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;border-bottom:1px solid var(--border-soft);}
+.sf-row:hover{background:var(--ink2);}
+.sf-row:last-child{border-bottom:none;}
+.sf-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.sf-text{font-size:13px;color:var(--text-soft);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:'Lora',serif;font-style:italic;}
+.sf-col-badge{font-size:10px;padding:2px 7px;border-radius:10px;font-family:'DM Mono',monospace;font-weight:500;flex-shrink:0;}
+.sf-date{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;flex-shrink:0;}
+.sf-arrow{font-size:11px;color:var(--muted2);}
+/* Detail */
+.sf-list{display:flex;flex-direction:column;}
+.sf-list.gone{display:none;}
+.sf-detail{display:none;flex-direction:column;animation:slideIn .16s ease;}
+.sf-detail.open{display:flex;}
+@keyframes slideIn{from{opacity:0;transform:translateX(10px);}to{opacity:1;transform:translateX(0);}}
+.sf-detail-quote{margin:12px 14px;padding:12px 13px;font-family:'Lora',serif;font-size:13.5px;font-style:italic;color:var(--text);line-height:1.7;background:var(--ink2);border-radius:0 9px 9px 0;border-left:3px solid var(--amber);}
+.sf-detail-meta{padding:0 14px 12px;display:flex;flex-direction:column;gap:11px;overflow-y:auto;}
+.sf-tag-row{display:flex;flex-wrap:wrap;gap:5px;}
+.sf-tag{font-size:11px;padding:2px 8px;border-radius:10px;background:var(--ink2);border:1px solid var(--border-soft);color:var(--muted);font-family:'DM Mono',monospace;cursor:pointer;display:flex;align-items:center;gap:3px;}
+.sf-tag-add{font-size:11px;padding:2px 8px;border-radius:10px;border:1px dashed var(--border);color:var(--muted2);font-family:'DM Mono',monospace;cursor:pointer;transition:all .12s;}
+.sf-tag-add:hover{border-color:var(--amber);color:var(--amber);}
+.sf-note-area{width:100%;background:var(--ink2);border:1px solid var(--border-soft);border-radius:8px;padding:8px 10px;font-size:12.5px;color:var(--text-soft);font-family:'Outfit',sans-serif;resize:none;outline:none;line-height:1.55;min-height:56px;transition:border-color .15s;}
+.sf-note-area:focus{border-color:var(--amber-mid);}
+.sf-note-area::placeholder{color:var(--muted2);}
+.sf-actions{display:flex;gap:6px;padding:9px 14px;border-top:1px solid var(--border-soft);flex-shrink:0;}
+.sf-act-btn{flex:1;padding:6px;border-radius:7px;border:1px solid var(--border-soft);background:transparent;color:var(--muted);font-size:12px;font-family:'Outfit',sans-serif;cursor:pointer;transition:all .12s;display:flex;align-items:center;justify-content:center;gap:4px;}
+.sf-act-btn:hover{background:var(--ink2);color:var(--text-soft);}
+.sf-act-btn.del:hover{border-color:var(--red-soft);color:var(--red);background:var(--red-soft);}
+.sf-act-btn.copy:hover{border-color:var(--amber-mid);color:var(--amber);background:var(--amber-soft);}
+
+/* ══════════════════════════════
+   PANEL: COLORS
+══════════════════════════════ */
+.colors-body{padding:13px 14px;display:flex;flex-direction:column;gap:13px;}
+.color-section-title{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);font-family:'DM Mono',monospace;margin-bottom:8px;}
+.swatch-row{display:flex;gap:8px;align-items:center;}
+.swatch{width:28px;height:28px;border-radius:50%;cursor:pointer;border:2px solid transparent;transition:all .13s;flex-shrink:0;}
+.swatch:hover{transform:scale(1.12);}
+.swatch.selected{border-color:white;box-shadow:0 0 0 2px var(--amber);}
+.swatch-add{width:28px;height:28px;border-radius:50%;border:2px dashed var(--border);background:transparent;color:var(--muted2);font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .12s;flex-shrink:0;line-height:1;}
+.swatch-add:hover{border-color:var(--amber);color:var(--amber);}
+.color-meanings{display:flex;flex-direction:column;gap:4px;}
+.color-meaning-row{display:flex;align-items:center;gap:9px;padding:7px 10px;background:var(--ink2);border-radius:8px;cursor:pointer;transition:background .1s;}
+.color-meaning-row:hover{background:var(--ink3);}
+.cm-dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+.cm-name{font-size:13px;color:var(--text-soft);flex:1;}
+.cm-badge{font-size:10px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:10px;color:var(--muted);background:var(--ink3);}
+.cm-count{font-size:10px;color:var(--muted2);font-family:'DM Mono',monospace;}
+
+/* ══════════════════════════════
+   PANEL: WRITE WITH AI
+══════════════════════════════ */
+.ai-ctx-row{display:flex;gap:5px;padding:0;margin-left:auto;}
+.ctx-chip{font-size:11px;padding:3px 10px;border-radius:10px;border:1px solid var(--border-soft);color:var(--muted);cursor:pointer;font-family:'DM Mono',monospace;transition:all .12s;background:transparent;}
+.ctx-chip.active{border-color:var(--amber-mid);color:var(--amber);background:var(--amber-soft);}
+.ai-prompts{padding:10px 14px;display:flex;flex-direction:column;gap:5px;}
+.ai-prompt-label{font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);font-family:'DM Mono',monospace;margin-bottom:3px;}
+.ai-prompt-chip{padding:8px 11px;border-radius:9px;border:1px solid var(--border-soft);background:var(--ink2);color:var(--text-soft);font-size:12.5px;cursor:pointer;text-align:left;font-family:'Outfit',sans-serif;transition:all .12s;line-height:1.4;}
+.ai-prompt-chip:hover{border-color:var(--amber-mid);color:var(--text);background:var(--amber-dim);}
+.ai-accent{color:var(--amber);}
+.ai-messages{flex:1;overflow-y:auto;padding:10px 14px;display:flex;flex-direction:column;gap:8px;}
+.ai-msg{max-width:90%;padding:8px 11px;border-radius:10px;font-size:12.5px;line-height:1.55;}
+.ai-msg.user{background:var(--amber-soft);color:#d97706;align-self:flex-end;border:1px solid var(--amber-mid);}
+.ai-msg.ai{background:var(--ink2);color:var(--text-soft);align-self:flex-start;border:1px solid var(--border-soft);font-family:'Lora',serif;font-style:italic;}
+.ai-input-row{display:flex;gap:6px;padding:10px 14px;border-top:1px solid var(--border-soft);flex-shrink:0;}
+.ai-input{flex:1;background:var(--ink2);border:1px solid var(--border-soft);border-radius:8px;padding:7px 10px;font-size:13px;color:var(--text);font-family:'Outfit',sans-serif;outline:none;transition:border-color .15s;}
+.ai-input:focus{border-color:var(--amber-mid);}
+.ai-input::placeholder{color:var(--muted2);}
+.ai-send{background:var(--amber);border:none;border-radius:8px;padding:7px 13px;color:#1c1917;font-size:14px;cursor:pointer;font-weight:600;display:flex;align-items:center;}
+.ai-send:hover{opacity:.88;}
+
+/* ══════════════════════════════
+   PANEL: SETTINGS
+══════════════════════════════ */
+.s-section{padding:10px 14px 3px;font-size:10px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted2);font-family:'DM Mono',monospace;}
+.s-row{display:flex;align-items:center;gap:10px;padding:9px 14px;cursor:pointer;transition:background .1s;}
+.s-row:hover{background:var(--ink2);}
+.s-icon{font-size:14px;width:20px;text-align:center;flex-shrink:0;opacity:.75;}
+.s-label{font-size:13px;color:var(--text-soft);flex:1;}
+.s-val{font-size:11px;color:var(--muted2);font-family:'DM Mono',monospace;}
+.s-arrow{font-size:11px;color:var(--muted2);}
+.s-divider{height:1px;background:var(--border-soft);margin:4px 0;}
+
+/* ══════════════════════════════
+   VISIBILITY TOAST
+══════════════════════════════ */
+.vis-toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--ink);border:1px solid var(--border);color:var(--text-soft);font-size:12px;padding:7px 16px;border-radius:9px;font-family:'DM Mono',monospace;opacity:0;transition:opacity .2s;pointer-events:none;z-index:300;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+
+/* ══════════════════════════════
+   CAPTURE TOAST
+══════════════════════════════ */
+.capture-toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%);background:var(--ink);border:1px solid var(--border);border-radius:10px;padding:8px 14px;display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--text-soft);font-family:'Outfit',sans-serif;opacity:0;transition:opacity .2s;pointer-events:none;z-index:300;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.ct-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.ct-change{font-size:11px;color:var(--amber);cursor:pointer;pointer-events:all;text-decoration:underline;text-underline-offset:2px;}
+</style>
+</head>
+<body>
+
+<!-- ══ FAKE ARTICLE ══ -->
+<div class="page">
+  <div class="page-inner">
+    <div class="page-kicker">Copywriting · Email · Conversion</div>
+    <h1 class="page-h1">The Psychology Behind Subject Lines That Always Get Opened</h1>
+    <p class="page-p">The average office worker receives <span class="hl hl-amber"><span class="hl-tip">Headlines</span>121 emails per day</span>. Your subject line has about 3 seconds to earn the open. Most copywriters obsess over the body — the real battle is won before anyone reads a single word.</p>
+    <p class="page-p">The most effective subject lines work because they <span class="hl hl-coral"><span class="hl-tip">CTAs</span>create an itch the reader can only scratch by opening the email</span>. This is called the curiosity gap — one of the oldest psychological triggers in writing.</p>
+    <p class="page-p">Consider the difference between "Our new product is here" and <span class="hl hl-sage"><span class="hl-tip">Inspo</span>"We almost didn't launch this."</span> The second creates a story with a missing chapter. The reader's brain wants to resolve it.</p>
+    <p class="page-p">Urgency works — but <span class="hl hl-rose"><span class="hl-tip">Avoid</span>only when it's real. Fake urgency trains your list to ignore your deadlines</span> and tanks long-term deliverability.</p>
+  </div>
+</div>
+
+<!-- ══ TOOLBAR SCENE ══ -->
+<div class="tb-scene">
+
+  <!-- CAPTURE MODE POPOVER -->
+  <div class="popover" id="pop-capture">
+    <div class="pop-header">
+      <div class="pop-title">Capture Mode</div>
+      <!-- DATA: reads store.settings.captureMode -->
+    </div>
+    <div class="capture-options">
+      <div class="capture-opt active" id="cap-text" onclick="setCapMode(this,'text')">
+        <svg viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg>
+        <div class="capture-opt-label">Text Select</div>
+        <div class="capture-opt-desc">Highlight any text selection on the page</div>
+        <div class="capture-opt-key">T</div>
+      </div>
+      <div class="capture-opt" id="cap-dom" onclick="setCapMode(this,'dom')">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <div class="capture-opt-label">DOM Element</div>
+        <div class="capture-opt-desc">Click to capture entire page elements</div>
+        <div class="capture-opt-key">D</div>
+      </div>
+    </div>
+    <div class="capture-footer">
+      <div class="capture-row">
+        <div>
+          <div class="capture-row-label">Auto-save on select</div>
+          <div class="capture-row-sub">No confirmation, instant capture</div>
+          <!-- DATA: writes store.settings.autoSave -->
+        </div>
+        <div class="toggle on" onclick="this.classList.toggle('on')"></div>
+      </div>
+      <div class="kb-row">
+        <div class="kb">Q</div><div class="kb-desc">Toggle quick capture</div>
+        <div class="kb" style="margin-left:auto">Esc</div><div class="kb-desc">Cancel</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCREENSHOT POPOVER -->
+  <div class="popover" id="pop-screenshot">
+    <div class="pop-header">
+      <div class="pop-title">Screenshot</div>
+      <!-- DATA: reads store.collections for the select -->
+    </div>
+    <div class="ss-preview">
+      <div class="ss-mockscreen">
+        <div class="ss-bar" style="width:55%"></div>
+        <div class="ss-bar" style="width:80%"></div>
+        <div class="ss-hl" style="width:68%"></div>
+        <div class="ss-bar" style="width:45%"></div>
+        <div class="ss-bar" style="width:75%"></div>
+        <div class="ss-hl" style="width:60%"></div>
+        <div class="ss-bar" style="width:82%"></div>
+      </div>
+      <div class="ss-hover"><div class="ss-hover-label">Click to select region</div></div>
+    </div>
+    <div class="ss-region-row">
+      <button class="ss-region-btn active" onclick="setSsRegion(this)">
+        <svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+        Select region
+      </button>
+      <button class="ss-region-btn" onclick="setSsRegion(this)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        DOM element
+      </button>
+      <button class="ss-region-btn" onclick="setSsRegion(this)">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Full page
+      </button>
+    </div>
+    <div class="ss-footer">
+      <span class="ss-col-label">Save to</span>
+      <!-- DATA: options populated from store.collections -->
+      <select class="ss-col-select">
+        <option>Inspo</option>
+        <option>Headlines</option>
+        <option>CTAs</option>
+        <option>Avoid</option>
+        <option>Research</option>
+      </select>
+      <button class="ss-capture-btn" onclick="fireScreenshotToast()">
+        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Capture
+      </button>
+    </div>
+  </div>
+
+  <!-- QUICK NOTE POPOVER -->
+  <div class="popover" id="pop-note" style="max-height:none">
+    <div class="pop-header">
+      <div class="pop-title">Quick Note</div>
+      <div style="margin-left:auto;font-size:11px;color:var(--muted2);font-family:'DM Mono',monospace">psychologyofcopy.com</div>
+      <!-- DATA: current tab URL -->
+    </div>
+    <div id="qn-form">
+      <div class="qn-body">
+        <textarea class="qn-textarea" id="qn-ta" placeholder="Capture a thought about this page…" oninput="updateQnChar(this)" onkeydown="if(event.metaKey&&event.key==='Enter')saveNote()"></textarea>
+        <div class="qn-char" id="qn-char">0 / 280</div>
+        <div>
+          <div class="field-label">Collection</div>
+          <!-- DATA: chips from store.collections -->
+          <div class="qn-col-row">
+            <button class="qn-col-chip active" onclick="selectQnCol(this)">General</button>
+            <button class="qn-col-chip" onclick="selectQnCol(this)">Headlines</button>
+            <button class="qn-col-chip" onclick="selectQnCol(this)">CTAs</button>
+            <button class="qn-col-chip" onclick="selectQnCol(this)">Inspo</button>
+            <button class="qn-col-chip" onclick="selectQnCol(this)">Avoid</button>
+          </div>
+        </div>
+        <div class="qn-footer">
+          <div class="qn-url">psychologyofcopy.com/subject-lines</div>
+          <!-- DATA: writes new item to store.items -->
+          <button class="qn-save-btn" onclick="saveNote()">Save ↵</button>
+        </div>
+      </div>
+    </div>
+    <div class="qn-saved" id="qn-saved">
+      <div class="qn-saved-icon">✦</div>
+      <div class="qn-saved-text">Note saved</div>
+      <div class="qn-saved-sub" id="qn-saved-sub">Added to General</div>
+    </div>
+  </div>
+
+  <!-- SWIPE FILE POPOVER -->
+  <div class="popover" id="pop-swipe">
+    <!-- LIST VIEW -->
+    <div class="sf-list" id="sf-list">
+      <div class="pop-header">
+        <!-- DATA: seg reads store.items filtered by type -->
+        <div class="sf-seg">
+          <button class="sf-seg-btn active" onclick="sfSeg(this)">All</button>
+          <button class="sf-seg-btn" onclick="sfSeg(this)">Highlights</button>
+          <button class="sf-seg-btn" onclick="sfSeg(this)">Notes</button>
+          <button class="sf-seg-btn" onclick="sfSeg(this)">Screenshots</button>
+        </div>
+        <input class="pop-search" style="width:100px;flex:0;margin-left:6px" type="text" placeholder="Search…">
+      </div>
+      <div class="pop-body">
+        <!-- DATA: rows from store.items, sorted by createdAt desc -->
+        <div class="sf-row" onclick="openSfDetail('amber','CTAs','The real battle is won before anyone reads a single word.','copyblogger.com','email, urgency','Cross this with the curiosity gap framework.')">
+          <div class="sf-dot" style="background:var(--amber)"></div>
+          <div class="sf-text">"The real battle is won before anyone reads a single word."</div>
+          <div class="sf-col-badge" style="background:var(--amber-soft);color:var(--amber)">Headlines</div>
+          <div class="sf-date">now</div>
+          <div class="sf-arrow">›</div>
+        </div>
+        <div class="sf-row" onclick="openSfDetail('coral','CTAs','Create an itch the reader can only scratch by opening the email.','copyblogger.com','curiosity, hooks','Classic curiosity gap.')">
+          <div class="sf-dot" style="background:var(--coral)"></div>
+          <div class="sf-text">"Create an itch the reader can only scratch by opening the email."</div>
+          <div class="sf-col-badge" style="background:var(--coral-soft);color:var(--coral)">CTAs</div>
+          <div class="sf-date">now</div>
+          <div class="sf-arrow">›</div>
+        </div>
+        <div class="sf-row" onclick="openSfDetail('sage','Inspo','We almost didn\'t launch this.','blog.superhuman.com','launch, curiosity','Missing chapter technique.')">
+          <div class="sf-dot" style="background:var(--sage)"></div>
+          <div class="sf-text">"We almost didn't launch this."</div>
+          <div class="sf-col-badge" style="background:var(--sage-soft);color:var(--sage)">Inspo</div>
+          <div class="sf-date">now</div>
+          <div class="sf-arrow">›</div>
+        </div>
+        <div class="sf-row" onclick="openSfDetail('rose','Avoid','Fake urgency trains your list to ignore your deadlines.','copyhackers.com','urgency, avoid','Keep as reminder.')">
+          <div class="sf-dot" style="background:var(--rose)"></div>
+          <div class="sf-text">"Fake urgency trains your list to ignore your deadlines."</div>
+          <div class="sf-col-badge" style="background:var(--rose-soft);color:var(--rose)">Avoid</div>
+          <div class="sf-date">2h</div>
+          <div class="sf-arrow">›</div>
+        </div>
+        <div class="sf-row" onclick="openSfDetail('amber','Headlines','Nobody buys a drill. They buy a hole in the wall.','marketingexamples.com','positioning','Use this for every features vs benefits talk.')">
+          <div class="sf-dot" style="background:var(--amber)"></div>
+          <div class="sf-text">"Nobody buys a drill. They buy a hole in the wall."</div>
+          <div class="sf-col-badge" style="background:var(--amber-soft);color:var(--amber)">Headlines</div>
+          <div class="sf-date">1d</div>
+          <div class="sf-arrow">›</div>
+        </div>
+        <div class="sf-row" onclick="openSfDetail('sky','Research','Features tell. Benefits sell. Emotions compel.','copyhackers.com','framework, emotions','Three-layer hierarchy.')">
+          <div class="sf-dot" style="background:var(--sky)"></div>
+          <div class="sf-text">"Features tell. Benefits sell. Emotions compel."</div>
+          <div class="sf-col-badge" style="background:var(--sky-soft);color:var(--sky)">Research</div>
+          <div class="sf-date">2d</div>
+          <div class="sf-arrow">›</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <!-- DATA: reads/writes single store.items[id] -->
+    <div class="sf-detail" id="sf-detail">
+      <div class="pop-header">
+        <button class="pop-back" onclick="closeSfDetail()">‹</button>
+        <div class="pop-title" id="sf-detail-domain">copyblogger.com</div>
+        <button class="sf-act-btn copy" style="flex:0;padding:4px 10px;font-size:11px;margin-left:auto" onclick="showCaptureToast('Copied to clipboard ✓',null)">Copy ↗</button>
+      </div>
+      <div class="sf-detail-quote" id="sf-detail-quote">"The real battle is won before anyone reads a single word."</div>
+      <div class="sf-detail-meta">
+        <div>
+          <div class="field-label">Tags</div>
+          <!-- DATA: item.tags — add/remove writes back to store -->
+          <div class="sf-tag-row" id="sf-detail-tags"></div>
+        </div>
+        <div>
+          <div class="field-label">Note</div>
+          <!-- DATA: item.note — onblur writes to store.items[id].note -->
+          <textarea class="sf-note-area" id="sf-detail-note" placeholder="What makes this work? When would you use it?"></textarea>
+        </div>
+      </div>
+      <div class="sf-actions">
+        <button class="sf-act-btn">⊞ Project</button>
+        <button class="sf-act-btn">☆ Star</button>
+        <button class="sf-act-btn copy">⬆ Copy</button>
+        <button class="sf-act-btn del">🗑 Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COLORS POPOVER -->
+  <div class="popover" id="pop-colors" style="max-height:none">
+    <div class="pop-header">
+      <div class="pop-title">Highlight Colors</div>
+      <!-- DATA: reads store.settings.activeColor + store.collections -->
+    </div>
+    <div class="colors-body">
+      <div>
+        <div class="color-section-title">Active color</div>
+        <div class="swatch-row">
+          <div class="swatch selected" style="background:var(--amber)" onclick="selectSwatch(this,'Headlines')"></div>
+          <div class="swatch" style="background:var(--coral)" onclick="selectSwatch(this,'CTAs')"></div>
+          <div class="swatch" style="background:var(--sage)" onclick="selectSwatch(this,'Inspo')"></div>
+          <div class="swatch" style="background:var(--rose)" onclick="selectSwatch(this,'Avoid')"></div>
+          <div class="swatch" style="background:var(--sky)" onclick="selectSwatch(this,'Research')"></div>
+          <button class="swatch-add" onclick="showCaptureToast('Custom colors in Pro ✦',null)">+</button>
+        </div>
+      </div>
+      <div>
+        <div class="color-section-title">Color meanings</div>
+        <!-- DATA: rows from store.collections — name, color, item count -->
+        <div class="color-meanings">
+          <div class="color-meaning-row">
+            <div class="cm-dot" style="background:var(--amber)"></div>
+            <div class="cm-name">Headlines</div>
+            <div class="cm-badge">headlines</div>
+            <div class="cm-count">84</div>
+          </div>
+          <div class="color-meaning-row">
+            <div class="cm-dot" style="background:var(--coral)"></div>
+            <div class="cm-name">CTAs</div>
+            <div class="cm-badge">ctas</div>
+            <div class="cm-count">61</div>
+          </div>
+          <div class="color-meaning-row">
+            <div class="cm-dot" style="background:var(--sage)"></div>
+            <div class="cm-name">Inspo</div>
+            <div class="cm-badge">inspo</div>
+            <div class="cm-count">52</div>
+          </div>
+          <div class="color-meaning-row">
+            <div class="cm-dot" style="background:var(--rose)"></div>
+            <div class="cm-name">Avoid</div>
+            <div class="cm-badge">avoid</div>
+            <div class="cm-count">29</div>
+          </div>
+          <div class="color-meaning-row">
+            <div class="cm-dot" style="background:var(--sky)"></div>
+            <div class="cm-name">Research</div>
+            <div class="cm-badge">research</div>
+            <div class="cm-count">21</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- WRITE WITH AI POPOVER -->
+  <div class="popover" id="pop-ai">
+    <div class="pop-header">
+      <div class="pop-title">Write with AI</div>
+      <!-- DATA: context affects which items are passed to the AI prompt -->
+      <div class="ai-ctx-row">
+        <button class="ctx-chip active" onclick="switchCtx(this)">This page</button>
+        <button class="ctx-chip" onclick="switchCtx(this)">My swipe file</button>
+      </div>
+    </div>
+    <div id="ai-prompts-wrap">
+      <div class="ai-prompts">
+        <div class="ai-prompt-label">Suggested</div>
+        <!-- DATA: prompts are contextual — differ between "this page" and "my swipe file" mode -->
+        <button class="ai-prompt-chip" onclick="usePrompt(this)"><span class="ai-accent">✦</span> What makes these subject lines work?</button>
+        <button class="ai-prompt-chip" onclick="usePrompt(this)"><span class="ai-accent">✦</span> Show me patterns from my Headlines collection</button>
+        <button class="ai-prompt-chip" onclick="usePrompt(this)"><span class="ai-accent">✦</span> Write 5 subject lines in this style</button>
+        <button class="ai-prompt-chip" onclick="usePrompt(this)"><span class="ai-accent">✦</span> What curiosity gap techniques am I missing?</button>
+      </div>
+    </div>
+    <!-- DATA: messages — role:user content comes from input, role:assistant from AI API response -->
+    <div class="ai-messages" id="ai-msgs" style="display:none"></div>
+    <div class="ai-input-row">
+      <input class="ai-input" id="ai-inp" type="text" placeholder="Ask about this page or your swipe file…" onkeydown="if(event.key==='Enter')sendAI()">
+      <button class="ai-send" onclick="sendAI()">↑</button>
+    </div>
+  </div>
+
+  <!-- SETTINGS POPOVER -->
+  <div class="popover" id="pop-settings">
+    <div class="pop-header">
+      <div class="pop-title">Settings</div>
+    </div>
+    <div class="pop-body">
+      <!-- DATA: all rows read/write store.settings -->
+      <div class="s-section">Appearance</div>
+      <div class="s-row">
+        <span class="s-icon">◑</span>
+        <span class="s-label">Theme</span>
+        <span class="s-val">Dark ink</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-row">
+        <span class="s-icon">⊞</span>
+        <span class="s-label">Panel mode</span>
+        <span class="s-val">Popover</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-divider"></div>
+
+      <div class="s-section">Capture</div>
+      <div class="s-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+        <span class="s-icon">⚡</span>
+        <span class="s-label">Auto-save on select</span>
+        <!-- DATA: store.settings.autoSave -->
+        <div class="toggle on"></div>
+      </div>
+      <div class="s-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+        <span class="s-icon">🔔</span>
+        <span class="s-label">Capture confirmation</span>
+        <!-- DATA: store.settings.captureToast -->
+        <div class="toggle on"></div>
+      </div>
+      <div class="s-row" onclick="this.querySelector('.toggle').classList.toggle('on')">
+        <span class="s-icon">🎨</span>
+        <span class="s-label">Color maps to collection</span>
+        <!-- DATA: store.settings.colorMapsCollection -->
+        <div class="toggle on"></div>
+      </div>
+      <div class="s-divider"></div>
+
+      <div class="s-section">Collections</div>
+      <!-- DATA: collection names + colors from store.collections -->
+      <div class="s-row">
+        <span class="s-icon">◈</span>
+        <span class="s-label">Manage collections</span>
+        <span class="s-val">5 active</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-divider"></div>
+
+      <div class="s-section">Sync & Export</div>
+      <div class="s-row">
+        <span class="s-icon">☁</span>
+        <span class="s-label">Account</span>
+        <!-- DATA: store.user.email -->
+        <span class="s-val">jane@copy.co</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-row">
+        <span class="s-icon">⬆</span>
+        <span class="s-label">Export format</span>
+        <!-- DATA: store.settings.exportFormat -->
+        <span class="s-val">Markdown</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-row">
+        <span class="s-icon">⧉</span>
+        <span class="s-label">Integrations</span>
+        <!-- DATA: store.integrations — connected services -->
+        <span class="s-val">Notion</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-divider"></div>
+
+      <div class="s-section">AI</div>
+      <div class="s-row">
+        <span class="s-icon">✦</span>
+        <span class="s-label">Model</span>
+        <!-- DATA: store.settings.aiModel -->
+        <span class="s-val">Claude Sonnet</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-row">
+        <span class="s-icon">🔑</span>
+        <span class="s-label">API Key</span>
+        <!-- DATA: store.settings.apiKey (masked) -->
+        <span class="s-val">••••a3f2</span>
+        <span class="s-arrow">›</span>
+      </div>
+      <div class="s-divider"></div>
+      <div class="s-row" style="opacity:.6">
+        <span class="s-icon">↗</span>
+        <span class="s-label">Open web app</span>
+        <!-- ACTION: opens glean.app in new tab -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TOOLBAR ══ -->
+  <div class="toolbar">
+
+    <!-- Drag -->
+    <button class="tb-btn" style="cursor:grab">
+      <div class="drag-dots"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+      <div class="tip">Drag toolbar</div>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <!-- Capture Mode -->
+    <button class="tb-btn" id="btn-capture" onclick="togglePop('capture',this)">
+      <svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+      <div class="tip">Capture mode</div>
+    </button>
+
+    <!-- Visibility -->
+    <button class="tb-btn" id="btn-vis" onclick="toggleVis(this)">
+      <svg viewBox="0 0 24 24" id="vis-svg"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      <div class="tip">Toggle highlights</div>
+    </button>
+
+    <!-- Screenshot -->
+    <button class="tb-btn" id="btn-screenshot" onclick="togglePop('screenshot',this)">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+      <div class="tip">Screenshot</div>
+    </button>
+
+    <!-- Quick Note -->
+    <button class="tb-btn" id="btn-note" onclick="togglePop('note',this)">
+      <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      <div class="tip">Quick note</div>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <!-- Swipe File -->
+    <button class="tb-btn" id="btn-swipe" onclick="togglePop('swipe',this)">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      <div class="tip">Swipe file</div>
+    </button>
+
+    <!-- Colors -->
+    <button class="tb-btn" id="btn-colors" onclick="togglePop('colors',this)">
+      <svg viewBox="0 0 24 24"><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/></svg>
+      <div class="tip">Colors</div>
+    </button>
+
+    <!-- Write with AI -->
+    <button class="tb-btn" id="btn-ai" onclick="togglePop('ai',this)">
+      <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01" stroke-width="2.5"/></svg>
+      <div class="tip">Write with AI</div>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <!-- Settings -->
+    <button class="tb-btn" id="btn-settings" onclick="togglePop('settings',this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      <div class="tip">Settings</div>
+    </button>
+
+  </div>
+</div>
+
+<!-- TOASTS -->
+<div class="vis-toast" id="vis-toast"></div>
+<div class="capture-toast" id="ct">
+  <div class="ct-dot" id="ct-dot" style="background:var(--amber)"></div>
+  <span id="ct-text">Saved to <strong>Headlines</strong></span>
+  <span class="ct-change" onclick="document.getElementById('ct').style.opacity=0">Change →</span>
+</div>
+
+<script>
+// ══ STATE ══
+let currentPop = null;
+let currentBtn = null;
+let visOn = true;
+
+const pops = {
+  capture:'pop-capture', screenshot:'pop-screenshot', note:'pop-note',
+  swipe:'pop-swipe', colors:'pop-colors', ai:'pop-ai', settings:'pop-settings'
+};
+
+// ══ POPOVER ══
+function togglePop(name, btn) {
+  const same = currentPop === name;
+  closePops();
+  if (same) return;
+  document.getElementById(pops[name]).classList.add('open');
+  btn.classList.add('on');
+  currentPop = name; currentBtn = btn;
+}
+function closePops() {
+  Object.values(pops).forEach(id => document.getElementById(id).classList.remove('open'));
+  document.querySelectorAll('.tb-btn').forEach(b => b.classList.remove('on'));
+  currentPop = null; currentBtn = null;
+}
+document.addEventListener('click', e => { if (!e.target.closest('.tb-scene')) closePops(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closePops(); });
+
+// ══ VISIBILITY ══
+function toggleVis(btn) {
+  visOn = !visOn;
+  document.querySelectorAll('.hl').forEach(el => el.style.opacity = visOn ? '1' : '0.2');
+  const t = document.getElementById('vis-toast');
+  t.textContent = visOn ? '● Highlights visible' : '○ Highlights hidden';
+  t.style.opacity = '1';
+  setTimeout(() => t.style.opacity = '0', 1800);
+  document.getElementById('vis-svg').innerHTML = visOn
+    ? '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'
+    : '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+}
+
+// ══ CAPTURE MODE ══
+function setCapMode(btn, mode) {
+  document.querySelectorAll('.capture-opt').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // DATA WRITE: store.settings.captureMode = mode
+}
+
+// ══ SCREENSHOT ══
+function setSsRegion(btn) {
+  btn.closest('.ss-region-row').querySelectorAll('.ss-region-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function fireScreenshotToast() {
+  const col = document.querySelector('.ss-col-select').value;
+  showCaptureToast(`Screenshot saved to ${col}`, 'var(--sage)');
+  closePops();
+}
+
+// ══ QUICK NOTE ══
+function updateQnChar(ta) {
+  document.getElementById('qn-char').textContent = ta.value.length + ' / 280';
+}
+function selectQnCol(btn) {
+  btn.closest('.qn-col-row').querySelectorAll('.qn-col-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function saveNote() {
+  const val = document.getElementById('qn-ta').value.trim();
+  if (!val) return;
+  const col = document.querySelector('.qn-col-chip.active')?.textContent || 'General';
+  // DATA WRITE: Store.addItem({ type:'note', text:val, collectionId:col, url:currentTabUrl, ... })
+  document.getElementById('qn-form').style.display = 'none';
+  const saved = document.getElementById('qn-saved');
+  document.getElementById('qn-saved-sub').textContent = 'Added to ' + col;
+  saved.classList.add('show');
+  showCaptureToast('Note saved to ' + col, 'var(--amber)');
+  setTimeout(() => {
+    document.getElementById('qn-ta').value = '';
+    document.getElementById('qn-char').textContent = '0 / 280';
+    document.getElementById('qn-form').style.display = 'block';
+    saved.classList.remove('show');
+    closePops();
+  }, 1600);
+}
+
+// ══ SWIPE FILE ══
+function sfSeg(btn) {
+  btn.closest('.sf-seg').querySelectorAll('.sf-seg-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  // DATA READ: filter store.items by type
+}
+function openSfDetail(color, collection, quote, domain, tags, note) {
+  document.getElementById('sf-list').classList.add('gone');
+  const det = document.getElementById('sf-detail');
+  det.classList.add('open');
+  // DATA READ: store.items[id] populates all fields below
+  const colorVar = `var(--${color})`;
+  const softVar = `var(--${color}-soft)`;
+  det.querySelector('.sf-detail-quote').textContent = `"${quote}"`;
+  det.querySelector('.sf-detail-quote').style.borderLeftColor = colorVar;
+  document.getElementById('sf-detail-domain').textContent = domain;
+  document.getElementById('sf-detail-note').value = note;
+  // Tags
+  const tagArr = tags.split(',').map(t => t.trim());
+  document.getElementById('sf-detail-tags').innerHTML =
+    tagArr.map(t => `<span class="sf-tag">${t} <span style="opacity:.5;font-size:11px">×</span></span>`).join('') +
+    `<span class="sf-tag-add">+ tag</span>`;
+}
+function closeSfDetail() {
+  document.getElementById('sf-list').classList.remove('gone');
+  document.getElementById('sf-detail').classList.remove('open');
+  // DATA WRITE: save note textarea value back to store.items[id].note
+}
+
+// ══ COLORS ══
+function selectSwatch(el, colName) {
+  el.closest('.swatch-row').querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+  el.classList.add('selected');
+  // DATA WRITE: store.settings.activeColor = colorKey
+  showCaptureToast(`Color → ${colName}`, el.style.background);
+}
+
+// ══ AI ══
+function switchCtx(chip) {
+  chip.closest('.ai-ctx-row').querySelectorAll('.ctx-chip').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  // DATA: context determines which items are passed in the AI system prompt
+  const isPage = chip.textContent.includes('page');
+  document.querySelectorAll('.ai-prompt-chip').forEach((c,i) => {
+    const pagePrompts = ['What makes these subject lines work?','Summarize what I\'ve highlighted here','Write 5 subject lines in this style','What curiosity gap techniques am I missing?'];
+    const swipePrompts = ['Show me patterns from my Headlines collection','Find subject lines similar to these','What topics do I swipe most from?','Write copy using my best CTAs'];
+    c.childNodes[1].textContent = ' ' + (isPage ? pagePrompts[i] : swipePrompts[i]);
+  });
+}
+function usePrompt(btn) {
+  document.getElementById('ai-inp').value = btn.textContent.replace('✦','').trim();
+  sendAI();
+}
+const aiReplies = [
+  "Your swipe file has 84 Headlines items. The dominant pattern: curiosity gaps (31%), specificity anchors (24%), social proof openers (18%). The curiosity gap ones correlate with your highest-starred items.",
+  "Looking at your 4 highlights from this page: they cluster around two techniques — the curiosity gap and what I'd call the 'permission slip' (We almost didn't launch this). Both withhold information to compel action.",
+  "5 subject lines in this style:\n1. 'We almost pulled this offer'\n2. 'The email that got 94 replies'\n3. 'Why I deleted 3,000 subscribers'\n4. 'This took us 4 months to admit'\n5. 'The CTA we were afraid to test'",
+  "You're missing two high-converting patterns from your current swipe file: (1) the named enemy — a shared villain your reader already hates, and (2) the specificity anchor — a precise number that signals credibility."
+];
+let aiIdx = 0;
+function sendAI() {
+  const input = document.getElementById('ai-inp');
+  const val = input.value.trim();
+  if (!val) return;
+  const msgs = document.getElementById('ai-msgs');
+  document.getElementById('ai-prompts-wrap').style.display = 'none';
+  msgs.style.display = 'flex';
+  const um = document.createElement('div');
+  um.className = 'ai-msg user'; um.textContent = val; msgs.appendChild(um);
+  input.value = '';
+  const typing = document.createElement('div');
+  typing.className = 'ai-msg ai'; typing.textContent = '…'; typing.style.opacity = '.5';
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+  // DATA: in real implementation, POST to AI API with items context
+  setTimeout(() => {
+    typing.style.opacity = '1';
+    typing.textContent = aiReplies[aiIdx % aiReplies.length];
+    typing.style.whiteSpace = 'pre-line';
+    aiIdx++;
+    msgs.scrollTop = msgs.scrollHeight;
+  }, 700);
+}
+
+// ══ TOAST ══
+function showCaptureToast(msg, color) {
+  const t = document.getElementById('ct');
+  if (color) document.getElementById('ct-dot').style.background = color;
+  document.getElementById('ct-text').innerHTML = msg;
+  t.style.opacity = '1';
+  clearTimeout(window._ct);
+  window._ct = setTimeout(() => t.style.opacity = '0', 2200);
+}
+
+// Highlight clicks fire toast
+document.querySelectorAll('.hl').forEach(el => {
+  el.addEventListener('click', () => {
+    const map = {'hl-amber':'var(--amber)','hl-coral':'var(--coral)','hl-sage':'var(--sage)','hl-rose':'var(--rose)'};
+    const cls = [...el.classList].find(c => map[c]);
+    const colMap = {'hl-amber':'Headlines','hl-coral':'CTAs','hl-sage':'Inspo','hl-rose':'Avoid'};
+    showCaptureToast(`Saved to <strong>${colMap[cls]}</strong>`, map[cls]);
+  });
+});
+
+// Boot toast
+setTimeout(() => showCaptureToast('Saved to <strong>Headlines</strong>', 'var(--amber)'), 800);
+</script>
+</body>
+</html>

@@ -107,20 +107,21 @@ export function registerActivePanelButtonSetter(cb: (panelId: string | null) => 
   activePanelButtonSetter = cb;
 }
 
-/** Return the toolbar width in pixels, or a fallback if toolbar is missing. */
-function getToolbarWidthPx(): number {
-  const toolbar = $id(TOOLBAR_ID);
-  if (!toolbar) return 400;
-  return toolbar.getBoundingClientRect().width;
+const PANEL_WIDTH = 500;
+
+interface PanelOptions {
+  maxHeight?: string;
 }
 
-function buildPanelContainer(): HTMLDivElement {
+let currentPanelOptions: PanelOptions = {};
+
+function buildPanelContainer(options: PanelOptions = {}): HTMLDivElement {
   const panel = document.createElement('div');
   panel.id = POPUP_PANEL_ID;
   panel.className =
     'an:fixed an:left-1/2 an:bottom-[84px] an:z-[2147483647] an:border ' +
-    'an:rounded-xl an:shadow-[0_8px_32px_rgba(0,0,0,0.12)] an:font-sans an:text-[13px] ' +
-    'an:max-h-[50vh] an:flex an:flex-col';
+    'an:rounded-2xl an:shadow-[0_16px_56px_rgba(0,0,0,0.55),0_4px_16px_rgba(0,0,0,0.3)] an:font-sans an:text-[13px] ' +
+    'an:flex an:flex-col an:overflow-hidden';
 
   syncPanelOffset.call(null);
   const toolbar = $id(TOOLBAR_ID);
@@ -128,11 +129,14 @@ function buildPanelContainer(): HTMLDivElement {
     ? getComputedStyle(toolbar).getPropertyValue('--annotator-toolbar-offset-x') || '0px'
     : '0px';
   panel.style.transform = `translateX(calc(-50% + ${offset}))`;
-  panel.style.width = `${getToolbarWidthPx()}px`;
+  panel.style.width = `${PANEL_WIDTH}px`;
+  panel.style.maxHeight = options.maxHeight ?? '400px';
+  panel.style.animation = 'annotator-pop-up .17s cubic-bezier(.34,1.4,.64,1)';
+  panel.style.transformOrigin = 'bottom center';
 
   const body = document.createElement('div');
   body.id = 'annotator-popup-body';
-  body.className = 'an:overflow-y-auto an:px-5 an:py-4 an:flex-1';
+  body.className = 'an:overflow-y-auto an:flex-1';
   panel.appendChild(body);
 
   applyPanelTheme(panel);
@@ -175,6 +179,7 @@ export function openPanel(
   panelId: string,
   _title: string,
   renderContent: (body: HTMLElement) => void,
+  options?: PanelOptions,
 ): void {
   if (currentPanelId === panelId) {
     closePanel();
@@ -182,8 +187,11 @@ export function openPanel(
   }
 
   closePanel();
+  currentPanelOptions = options ?? {};
 
-  const container = buildPanelContainer();
+  ensurePopUpKeyframes();
+
+  const container = buildPanelContainer(currentPanelOptions);
   getShadowRoot().appendChild(container);
   currentPanelId = panelId;
 
@@ -193,6 +201,15 @@ export function openPanel(
   if (activePanelButtonSetter) activePanelButtonSetter(panelId);
 
   addClickOutsideDismiss(container);
+}
+
+let keyframesInjected = false;
+function ensurePopUpKeyframes(): void {
+  if (keyframesInjected) return;
+  const style = document.createElement('style');
+  style.textContent = `@keyframes annotator-pop-up{from{opacity:0;transform:translateY(8px) scale(.97);}to{opacity:1;transform:translateY(0) scale(1);}}`;
+  getShadowRoot().appendChild(style);
+  keyframesInjected = true;
 }
 
 export function getOpenPanelId(): string | null {
